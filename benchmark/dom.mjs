@@ -42,7 +42,7 @@ export function installDomBridge(config = {}) {
     const elements = [], texts = [];
     const walk = node => {
       if (node.nodeType === 1) {
-        if (skipTags.has(node.tagName)) return;
+        if (skipTags.has(String(node.tagName).toUpperCase())) return;
         elements.push(node);
       } else if (node.nodeType === 3) texts.push(node);
       for (const child of node.childNodes || []) walk(child);
@@ -57,7 +57,7 @@ export function installDomBridge(config = {}) {
       if (!el || !el.isConnected || ['hidden', 'collapse'].includes(style(el).visibility)) return false;
       let opacity = 1;
       for (let node = el; node; node = node.parentElement) {
-        if (node.inert || node.hidden || skipTags.has(node.tagName)) return false;
+        if (node.inert || node.hidden || skipTags.has(String(node.tagName).toUpperCase())) return false;
         const s = style(node);
         if (s.display === 'none' || s.contentVisibility === 'hidden') return false;
         if (!(ignoreOwnOpacity && node === el)) opacity *= Number(s.opacity || 1);
@@ -74,13 +74,13 @@ export function installDomBridge(config = {}) {
     });
     const modal = modals.at(-1);
     const rendered = (el, ignoreOwnOpacity = false) => (!modal || modal.contains(el)) && cssRendered(el, ignoreOwnOpacity);
-    const clipRect = (el, raw) => {
+    const clipRect = (el, raw, includeOwnOverflow = false) => {
       let r = intersection(raw, viewport);
       for (let node = el; r && node; node = node.parentElement) {
         const s = style(node), b = node.getBoundingClientRect();
         const xOverflow = s.overflowX || s.overflow;
         const yOverflow = s.overflowY || s.overflow;
-        if (node !== el && (/^(hidden|clip|scroll|auto)$/.test(xOverflow) || /^(hidden|clip|scroll|auto)$/.test(yOverflow))) {
+        if ((includeOwnOverflow || node !== el) && (/^(hidden|clip|scroll|auto)$/.test(xOverflow) || /^(hidden|clip|scroll|auto)$/.test(yOverflow))) {
           const left = b.left + (node.clientLeft || 0), top = b.top + (node.clientTop || 0);
           const box = { left: /^(hidden|clip|scroll|auto)$/.test(xOverflow) ? left : r.left,
             right: /^(hidden|clip|scroll|auto)$/.test(xOverflow) ? left + node.clientWidth : r.right,
@@ -127,7 +127,9 @@ export function installDomBridge(config = {}) {
         const end = offset + char.length;
         range.setStart(node, offset); range.setEnd(node, end); offset = end;
         const visible = Array.from(range.getClientRects()).some(raw => {
-          const clipped = clipRect(parent, raw);
+          // Text paints inside its direct parent content box. Element hit boxes
+          // retain their own border box, so only text includes this own clip.
+          const clipped = clipRect(parent, raw, true);
           if (!clipped || clipped.width + .05 < raw.width || clipped.height + .05 < raw.height) return false;
           return samples(clipped).every(point => {
             const hit = doc.elementFromPoint(point.x, point.y);

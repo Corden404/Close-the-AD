@@ -55,7 +55,8 @@ function fixture(children, options = {}) {
   };
   const inheritedVisibility = el => el?.style.visibility ?? (el?.parentElement ? inheritedVisibility(el.parentElement) : 'visible');
   const style = el => ({ display: 'block', visibility: inheritedVisibility(el), opacity: '1',
-    overflow: 'visible', overflowX: 'visible', overflowY: 'visible', pointerEvents: 'auto',
+    overflow: 'visible', overflowX: el.style.overflowX ?? el.style.overflow ?? 'visible',
+    overflowY: el.style.overflowY ?? el.style.overflow ?? 'visible', pointerEvents: 'auto',
     contentVisibility: 'visible', clip: 'auto', clipPath: 'none', ...el.style });
   const document = {
     body, documentElement: html, scrollingElement: html, title: '关掉广告',
@@ -310,4 +311,40 @@ test('seeded candidate ordering is reproducible, content-neutral and preserves r
     const expectedY = 40 + (candidate.label.charCodeAt(0) - 65) * 70;
     assert.equal(first.preflight(click(a, candidate)).point.y, expectedY);
   }
+});
+
+test('direct text parent overflow clipping withholds its off-box suffix', () => {
+  const clipped = new Element('span', { text: 'VISIBLE_HIDDEN_TAIL', rect: rect(20, 20, 70, 20),
+    textRect: rect(20, 20, 180, 20), style: { overflow: 'hidden', textOverflow: 'ellipsis' } });
+  const obs = fixture([clipped]).observe();
+  assert.ok(publicText(obs).includes('VISIBLE'));
+  assert.doesNotMatch(publicText(obs), /HIDDEN_TAIL/);
+});
+
+test('self-clipped button text stays clipped while its native hit box remains actionable', () => {
+  const clipped = new Element('button', { text: 'VISIBLE_HIDDEN_TAIL', rect: rect(20, 20, 70, 20),
+    textRect: rect(20, 20, 180, 20), style: { overflowX: 'hidden' } });
+  const f = fixture([clipped]); const obs = f.observe();
+  assert.equal(obs.candidates.length, 1);
+  assert.equal(obs.candidates[0].label, 'VISIBLE');
+  assert.doesNotMatch(publicText(obs), /HIDDEN_TAIL/);
+  assert.deepEqual(f.preflight(click(obs, obs.candidates[0])), { ok: true, point: { x: 55, y: 30 } });
+});
+
+test('direct-parent vertical overflow and own clip shapes cannot expose outside text', () => {
+  for (const style of [{ overflowY: 'hidden' }, { overflowY: 'auto' },
+    { clip: 'rect(0px, 70px, 20px, 0px)' }, { clipPath: 'inset(0px)' }]) {
+    const clipped = new Element('span', { text: 'OUTSIDE_SECRET', rect: rect(20, 20, 70, 20),
+      textRect: rect(20, 60, 140, 20), style });
+    assert.doesNotMatch(publicText(fixture([clipped]).observe()), /SECRET/);
+  }
+});
+
+test('lowercase live SVG tag names exclude the entire non-DOM-caption subtree', () => {
+  const svg = new Element('svg', { rect: rect(20, 20, 200, 100), attrs: { 'aria-label': 'SVG secret' },
+    children: [new Element('text', { text: 'SVG secret answer', rect: rect(20, 20, 180, 20) })] });
+  // Real SVG Element.tagName preserves lowercase. The generic HTML double does
+  // not, so explicitly model the browser difference instead of hiding it.
+  svg.tagName = 'svg'; svg.children[0].tagName = 'text';
+  assert.doesNotMatch(publicText(fixture([svg]).observe()), /SVG secret answer/);
 });
