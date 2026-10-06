@@ -1,7 +1,8 @@
-export const STAGE_COUNT=6;
+import {advancedInitial,reduceAdvanced} from './advanced.mjs';
+export const STAGE_COUNT=9;
 export function initialState(){
   return {
-    stage:0,screen:'menu',hasStarted:false,returnScreen:'play',adClosed:[],adOverlays:[],sponsorId:null,attention:100,mistakes:0,recoveries:0,inspected:[],completed:[],
+    ...advancedInitial(),stage:0,screen:'menu',hasStarted:false,returnScreen:'play',adClosed:[],adOverlays:[],sponsorId:null,attention:100,mistakes:0,recoveries:0,inspected:[],completed:[],
     layers:['prize'],route:'goal',history:[],tabClosed:false,paused:false,
     recipeExpanded:false,timetableOpen:false,saved:false,permissionSimulated:false,
     extras:{insurance:true,fast:true,trial:true},reviewed:false,cookie:true,
@@ -11,7 +12,7 @@ export function initialState(){
   };
 }
 export function total(s){return 48+(s.extras.insurance?12:0)+(s.extras.fast?18:0);}
-export function stageAdIds(stage){const prefix={2:'ticket',3:'lesson',4:'inbox',5:'radio'}[stage];return prefix?['banner','image','float','followup'].map(slot=>`${prefix}-${slot}`):[];}
+export function stageAdIds(stage){const prefix={2:'ticket',3:'lesson',4:'inbox',5:'radio',6:'service',7:'job',8:'travel'}[stage];return prefix?(stage>=6?['banner','native','strip','rail','image','float','followup']:['banner','image','float','followup']).map(slot=>`${prefix}-${slot}`):[];}
 function enterStage(s,stage){return {...initialState(),stage,screen:'play',hasStarted:true,attention:s.attention,mistakes:s.mistakes,recoveries:s.recoveries,inspected:[...s.inspected],completed:[...s.completed],layers:stage===0?['prize']:[],adOverlays:stageAdIds(stage).filter(id=>id.endsWith('-float')),notice:stageNotices[stage]};}
 const mistake=(s,notice,patch={})=>({...s,...patch,mistakes:s.mistakes+1,attention:Math.max(15,s.attention-8),notice});
 const finish=(s)=>({...s,screen:'debrief',layers:[],completed:[...new Set([...s.completed,s.stage])],notice:'原来的任务，完成了。'});
@@ -22,7 +23,10 @@ const stageNotices=[
   '买一张票，别买成一种生活方式。',
   '播放键长得都差不多，它们要带你去的地方可不同。',
   '这一次，通知权限已经开了。关掉一条消息，能让它们停下来吗？',
-  '最后一件小事：让一份不再需要的订阅，真正停下来。'
+  '让一份不再需要的订阅，真正停下来。',
+  '从服务来源到时段与价格，每一步都值得核对。',
+  '标题里的高薪，和详情里的条件，是不是同一回事？',
+  '便宜不等于合适。先记住日期、时段、退票和预算。'
 ];
 export function reduce(s,a){
   if(a.type==='restart')return initialState();
@@ -35,7 +39,7 @@ export function reduce(s,a){
   if(a.type==='pause')return {...s,paused:true};
   if(a.type==='inspect')return {...s,inspected:[...new Set([...s.inspected,a.value])]};
   if(a.type==='next'&&s.screen==='debrief'){
-    if(s.completed.length===STAGE_COUNT)return {...s,screen:'complete',notice:'六件小事都完成了。今天的决定权，回到你手里。'};
+    if(s.completed.length===STAGE_COUNT)return {...s,screen:'complete',notice:'九件小事都完成了。今天的决定权，回到你手里。'};
     if(s.stage===STAGE_COUNT-1)return {...s,screen:'menu',returnScreen:'debrief',notice:'这关完成了。还可以去看看其他的小事。'};
     return enterStage(s,s.stage+1);
   }
@@ -48,7 +52,9 @@ export function reduce(s,a){
     notice:s.stage===4?'已回到消息中心。单独关掉页面不会撤回已经开启的通知权限。':'回到原来的任务。已经确认的选择仍然有效，误点也能重新决定。'
   };
   if(a.type==='browser.close')return {...s,tabClosed:true,layers:[],adOverlays:[],notice:'标签页已关闭。用「返回原页面」重新打开原页。'};
-  if(s.tabClosed||s.route!=='goal')return s;
+  if(s.tabClosed)return s;
+  if(s.stage>=6&&s.route!=='goal'&&a.type==='advanced.lead')return mistake(s,'权益页又增加了一个条件。不要被已经点过的步骤困住，随时可以返回原页面。',{adLeadStep:Math.min(2,s.adLeadStep+1)});
+  if(s.route!=='goal')return s;
   if(a.type.startsWith('ad.')){
     const valid=stageAdIds(s.stage);
     if(!valid.includes(a.value)||s.adClosed.includes(a.value))return s;
@@ -62,6 +68,7 @@ export function reduce(s,a){
     if(a.type==='ad.visit')return enterDetour({...s,sponsorId:a.value},'sponsor','打开了推广页面。原来的事情还在那里，可以随时返回。');
     return s;
   }
+  if(s.stage>=6)return reduceAdvanced(s,a,{mistake,finish,enterDetour});
   if(s.stage===0){
     if(a.type==='notice.dismiss')return {...s,cookie:false,notice:'普通的页面提示可以关闭；判断来源和影响，比一概拒绝更有用。'};
     if(a.type==='trap.close')return mistake(s,'感谢关闭，我们已为您打开更贴心的一条。这个 × 是广告入口。',{layers:['prize','security']});

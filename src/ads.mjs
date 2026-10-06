@@ -7,8 +7,14 @@ const artShapes={
  kitchen:`<ellipse cx="300" cy="160" rx="180" ry="109" fill="#fff2d7"/><ellipse cx="300" cy="160" rx="147" ry="85" fill="#d37b55"/><g fill="none" stroke="#edc978" stroke-width="15" stroke-linecap="round"><path d="M192 141q37-43 71-7t59 0 70 14m-191 30q31-33 65-1t60-1 66 10m-162-73q55 12 103 1"/></g><g fill="#537b59"><path d="M278 164q-52-55-65-20 10 25 65 20zm0 0q-12-61 25-53 18 31-25 53z"/></g><circle cx="360" cy="193" r="21" fill="#ad4d3b"/><circle cx="210" cy="162" r="17" fill="#ad4d3b"/>`,
  paper:`<g transform="rotate(-7 290 156)"><rect x="159" y="29" width="261" height="260" rx="10" fill="#fffdf0"/><path d="M191 80h181" stroke="#88a3b7" stroke-width="10"/><g stroke="#c3d2dc" stroke-width="3"><path d="M192 117h179v126H192zm0 42h179m-179 42h179m-119-84v126m60-126v126"/></g><g fill="#b3c4a4"><rect x="201" y="127" width="41" height="23" rx="4"/><rect x="261" y="169" width="41" height="23" rx="4"/><rect x="321" y="210" width="41" height="23" rx="4"/></g></g>`
 };
-export function chapterArtwork(stage){return adArtwork(['kitchen','paper','city','garden','lamp','headphones'][stage]);}
-function adArtwork(kind){return `<svg class="ad-artwork" viewBox="0 0 600 300" role="img" aria-label="${{city:'暮色城市与街角小车',garden:'阳台花盆与浇水壶',headphones:'奶油色头戴耳机',lamp:'暖灯下摊开的书',kitchen:'番茄焗意面插画',paper:'课程表纸张插画'}[kind]}">${artShapes[kind]}</svg>`;}
+
+Object.assign(artShapes,{
+ service:`<circle cx="467" cy="70" r="63" fill="#e7d496"/><rect x="170" y="35" width="205" height="229" rx="18" fill="#fff4d8" stroke="#5c7566" stroke-width="6"/><path d="M173 85h200" stroke="#b4bd9c" stroke-width="4"/><circle cx="275" cy="171" r="68" fill="#6d9e98" stroke="#5c7566" stroke-width="7"/><circle cx="275" cy="171" r="52" fill="#a9cbc0"/><path d="M224 184q25-23 51-1t51-2v23q-52 49-102 0z" fill="#709e9a"/><rect x="195" y="51" width="58" height="18" rx="5" fill="#a9b694"/><circle cx="344" cy="61" r="10" fill="#b87551"/><path d="M95 243V150m0 57-29-28m29 6 27-34" fill="none" stroke="#557d5e" stroke-width="7"/><g fill="#84a475"><ellipse cx="65" cy="171" rx="23" ry="12" transform="rotate(30 65 171)"/><ellipse cx="123" cy="144" rx="24" ry="13" transform="rotate(-35 123 144)"/></g><path d="M61 230h68l-10 49H70z" fill="#c98762"/><path d="m418 250 63-64a24 24 0 0128-30l-13 17 12 12 19-10a24 24 0 01-31 26l-62 66z" fill="#bf875d" stroke="#786650" stroke-width="3"/><ellipse cx="280" cy="284" rx="240" ry="7" fill="#52735c" opacity=".15"/>`,
+ work:`<circle cx="462" cy="72" r="63" fill="#e5b96f"/><path d="M35 253h530" stroke="#9e7059" stroke-width="13" stroke-linecap="round"/><path d="M153 63h269l-18 174H172z" fill="#6a708b"/><path d="M168 78h240l-15 142H182z" fill="#e4e3d2"/><path d="M211 117h144m-144 31h101m-101 29h125" stroke="#a0bba6" stroke-width="13"/><path d="M133 237h309l-17 17H150z" fill="#515a74"/><rect x="73" y="164" width="61" height="73" rx="8" fill="#cb976c"/><path d="M88 170 76 98m32 72 8-81" stroke="#798e87" stroke-width="9"/><path d="M459 179h56v59h-56z" fill="#e7d3a7"/><path d="M515 188q33-8 27 21l-27 5" fill="none" stroke="#e7d3a7" stroke-width="9"/><path d="M474 160q-12-17 0-33m22 33q-12-17 0-33" fill="none" stroke="#d3b37f" stroke-width="4"/>`,
+ journey:`<circle cx="467" cy="53" r="43" fill="#f4cf7d"/><path d="m0 188 116-114 92 113 103-138 123 134 80-90 86 104v103H0z" fill="#9db2a3"/><path d="m0 235 151-97 111 91 138-102 200 103v70H0z" fill="#759c91"/><path d="M0 266h600v34H0z" fill="#ddcaa6"/><g transform="rotate(-3 299 201)"><rect x="139" y="125" width="324" height="122" rx="25" fill="#487b94" stroke="#35566a" stroke-width="4"/><path d="M159 145h233v52H159z" fill="#d8e4d4"/><path d="M408 144h31q9 0 9 13v42h-40z" fill="#e5ddbd"/><path d="M215 145v52m61-52v52m60-52v52" stroke="#487b94" stroke-width="8"/><path d="M148 212h246" stroke="#dbc596" stroke-width="8"/><circle cx="206" cy="247" r="23" fill="#344854"/><circle cx="398" cy="247" r="23" fill="#344854"/><circle cx="206" cy="247" r="10" fill="#d9cdb9"/><circle cx="398" cy="247" r="10" fill="#d9cdb9"/></g><path d="M34 286h60m95 0h60m95 0h60m95 0h60" stroke="#fff2d0" stroke-width="5"/>`
+});
+export function chapterArtwork(stage){return adArtwork(['kitchen','paper','city','garden','lamp','headphones','service','work','journey'][stage]);}
+function adArtwork(kind){return `<svg class="ad-artwork" viewBox="0 0 600 300" role="img" aria-label="${{city:'暮色城市与街角小车',garden:'阳台花盆与浇水壶',headphones:'奶油色头戴耳机',lamp:'暖灯下摊开的书',kitchen:'番茄焗意面插画',paper:'课程表纸张插画',service:'绿植旁的奶油色洗衣机与工具',work:'暖色办公桌、笔记本与文具',journey:'山间公路上的蓝色客车'}[kind]}">${artShapes[kind]}</svg>`;}
 export const adCatalog=[
  {id:'ticket-banner',stage:2,slot:'banner',brand:'漫游通',host:'roaming-pass.example',theme:'sunset',eyebrow:'城市周末特选',title:'看完展，再住一晚。',copy:'把周末拉长一点。精选街区酒店，本周推荐。',cta:'查看周末礼遇',art:'city',animated:true},
  {id:'ticket-image',stage:2,slot:'image',brand:'角落咖啡',host:'corner-coffee.example',theme:'coffee',eyebrow:'散场之后，来点刚刚好',title:'你的下一站，一杯好咖啡。',copy:'附近门店 · 午后双杯套餐',cta:'领取双杯券',art:'lamp'},
@@ -27,6 +33,37 @@ export const adCatalog=[
  {id:'radio-float',stage:5,slot:'float',brand:'轻听精选',host:'radio-picks.example',theme:'coffee',eyebrow:'为你精选',title:'离开前，听听这一张。',copy:'新的歌单，熟悉的心情。今天的推荐已更新。',cta:'打开今日歌单',art:'headphones',animated:true,fakeClose:true},
  {id:'radio-followup',stage:5,slot:'followup',brand:'声岛',host:'sound-island.example',theme:'violet',eyebrow:'会员专享推荐',title:'把好声音，带回家。',copy:'发现适合自己的听音装备。',cta:'查看专属推荐',art:'headphones'}
 ];
+
+const advancedCampaigns=[
+ [6,'service',[
+  ['banner','净日生活','clean-day.example','garden','洗衣机的下一位搭档','把洗衣这件事，交给清新的香气。','衣物护理系列 · 凝珠 / 留香珠 / 柔顺剂','发现护理套装','service',true],
+  ['native','家务小队','home-team.example','coffee','一键焕新你的家','周末，不必都花在家务上。','上门清洁组合 · 本周精选','查看清洁服务','lamp',true],
+  ['strip','松间优选','pine-picks.example','garden','旧机换新季','给日常，换一台更轻松。','指定机型以旧换新，价格按评估结果计算','看看焕新计划','service',true],
+  ['rail','到家快修','quick-repair.example','sunset','附近服务推荐','有小问题，别等大麻烦。','非品牌官方服务 · 预约上门检测','了解附近师傅','service',false],
+  ['image','软云家居','soft-cloud.example','coffee','把生活整理得轻一点','洗好的衣服，也值得一个好位置。','收纳柜与晾晒组合 · 小空间灵感','打开收纳灵感','garden',false],
+  ['float','安心家计划','home-care.example','garden','检测前，多一份安心','你的家电关怀礼包已备好','延保、清洗、安装组合。按服务条件使用。','领取关怀礼包','service',true],
+  ['followup','家务小队','home-team.example','sunset','再多看一眼','首单好礼，等你发现。','服务范围与价格以套餐详情为准。','查看首单套餐','lamp',false]
+ ]],
+ [7,'job',[
+  ['banner','桌上有光','desk-light.example','coffee','新工作 · 新桌面','给下一段日常，一个好开场。','桌面收纳与护眼灯 · 开工搭配','发现开工好物','work',true],
+  ['native','职途研习社','career-study.example','violet','让简历更出彩','面试之前，先加一点底气。','表达训练与简历课程 · 查看课程收费','看看提升课程','paper',true],
+  ['strip','名片工场','card-studio.example','sunset','第一印象计划','让你的经历，被好好看见。','简历排版与形象照组合服务','查看服务套餐','work',true],
+  ['rail','跃步人才','step-talent.example','violet','热招推荐','高薪机会，离你近一点。','综合收入含绩效；岗位详情需另行核对','探索高薪专区','work',false],
+  ['image','午后补给','afternoon-fuel.example','coffee','工作日的小确幸','把咖啡带上，把状态找回来。','通勤杯与咖啡豆 · 工作日组合','打开补给清单','lamp',false],
+  ['float','职途通','career-pass.example','violet','专属求职推荐','你的优先机会已就绪','简历置顶、优先曝光、岗位推荐。','了解优先权益','work',true],
+  ['followup','职途研习社','career-study.example','sunset','面试季福利','下一次面试，准备好了吗？','职业课程与咨询服务，按所选项目收费。','查看课程组合','paper',false]
+ ]],
+ [8,'travel',[
+  ['banner','白沙慢住','baisha-stay.example','sunset','到站之后，慢一点','海边的周末，值得多留一晚。','民宿与早餐组合 · 查看可订日期','探索周末房型','city',true],
+  ['native','轻装出门','light-packing.example','coffee','周末轻装计划','只带必要的，也带喜欢的。','短途出行收纳与随身用品','打开轻装清单','journey',true],
+  ['strip','沿途咖啡','route-coffee.example','sunset','下一站，有点香','等车的时间，也可以很好。','车站门店 · 双杯出行套餐','领取出发好礼','lamp',true],
+  ['rail','旅享会','go-perks.example','garden','会员专属价','低至 ¥49，去看别的风景。','限指定班次及日期；部分票种不可退','查看低价条件','journey',false],
+  ['image','山海留声','land-sound.example','violet','路上听点什么','一副耳机，一小段自己的时间。','轻量降噪系列 · 适合通勤和周末','探索旅途耳机','headphones',false],
+  ['float','出发礼遇','departure-perks.example','sunset','周末礼遇已送达','你的出行礼包正在等你','车票券、接驳、酒店权益，按条件使用。','先领取，再出发','journey',true],
+  ['followup','白沙慢住','baisha-stay.example','coffee','让好心情多住一天','顺便，把落日也订下。','周末住宿精选 · 房价及退改以详情为准','看看海边住宿','city',false]
+ ]]
+];
+for(const [stage,prefix,rows] of advancedCampaigns)for(const [slot,brand,host,theme,eyebrow,title,copy,cta,art,animated] of rows)adCatalog.push({id:`${prefix}-${slot}`,stage,slot,brand,host,theme,eyebrow,title,copy,cta,art,animated,fakeClose:slot==='float'});
 export function renderStageAds(s,slot,ib){
  if(s.screen!=='play'||s.route!=='goal'||s.tabClosed)return '';
  return adCatalog.filter(ad=>ad.stage===s.stage&&!s.adClosed.includes(ad.id)&&(slot==='overlay'?s.adOverlays.includes(ad.id):ad.slot===slot)).map(ad=>renderAd(ad,ib)).join('');
