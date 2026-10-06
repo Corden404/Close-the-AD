@@ -82,7 +82,7 @@ npm run benchmark -- --stage 3 --inspection on --mock heuristic
 - [Playwright 可操作性](https://playwright.dev/docs/actionability)
 - [Playwright 点击行为](https://playwright.dev/docs/api/class-locator#locator-click)
 
-也可导入 openSession、runEpisode，向 runEpisode 提供 async agent(packet) 回调。回调返回一个动作对象或 JSON 字符串；返回 null 表示结束。若模型客户端提供实际 usage，可返回 {action: 动作对象, usage: {input_tokens: 整数, output_tokens: 整数}}。任一次回复缺少某项有效 usage 时，该项回合总量为 null，不把已知部分冒充总量，也不会拿字符数冒充 token。可信宿主代码可以访问 session；模型不应接触此对象或执行任意代码。
+也可导入 openSession、runEpisode，向 runEpisode 提供 async agent(packet) 回调。回调返回一个动作对象或 JSON 字符串；返回 null 表示结束。若模型客户端提供实际 usage，可返回 {action: 动作对象, usage: {input_tokens: 整数, output_tokens: 整数}}。任一次回复缺少某项有效 usage 时，该项回合总量为 null；回调抛错时，两项总量都为 null，不把此前已知部分冒充完整总量，也不会拿字符数冒充 token。可信宿主代码可以访问 session；模型不应接触此对象或执行任意代码。直接使用 API 的宿主负责在 finally 中调用 session.close()；CLI 会自动清理。
 
 ## 配对条件、随机性与评分
 
@@ -103,6 +103,15 @@ seed 控制候选不透明 ID、候选列表排列和随机基线选择，不随
 
 步骤预算包含格式错误和过期动作，防止无效回复无限重试。误点、恢复与检查记录在宿主侧跨重置累计，清空游戏进度不能抹掉本回合的评测历史。随机基线的 fill 从 50–300 中随机选值，不读取正确答案。最终 summary 给出各关结果以及总体成功率；比较模型时还应按关卡与 ads/inspection 条件分别汇总。
 
+回合错误有明确区分：
+
+- agent_error：agent 回调抛错。result 只记录固定错误码 agent_callback_failed，不复制原始错误消息、堆栈或自定义错误码。失败调用仍计入延迟与耗时；没有返回动作的调用不增加 attempts。
+- browser_error：session 的 observe、evaluate 或 act 抛错，错误码分别为 observe_failed、evaluate_failed、act_failed。即使游戏状态已经完成，回合 success 与 zero_mistake_success 仍为 false。若最终裁判读取失败，evaluation_available 为 false，裁判及浏览器计数字段和 page_errors 为 null，不沿用旧值；读取成功时该标志为 true。
+- page_error：裁判返回页面错误时，错误优先于游戏完成，success 与 zero_mistake_success 都为 false。若已经遇到 agent_error、browser_error 或明确 EOF，则保留先前的终止原因，仍不计成功。
+- execution_error：执行前检查、鼠标/键盘、帧等待或快照失效操作失败，返回固定动作错误，不泄露原始异常。执行前检查失败不会发送输入事件；已有的 invalid_action、stale_snapshot 等验证错误保持原样。
+
+CLI 将已打开 session 内的回合错误写入 result 和轨迹，再继续下一关或模式，最终汇总失败回合；stdin 明确 EOF 的 agent_closed 则有意终止交互批次。浏览器启动、轨迹创建/写入/关闭失败会使命令报错退出，不输出该回合的成功结果或整批成功汇总。
+
 ## 安全与日志
 
 页面保留严格 CSP，浏览器使用新上下文、空权限、禁用 Service Worker，网络请求被阻断，意外弹窗/下载被关闭或取消。所有支付、订阅、下载与权限操作仅是游戏状态变化。模型没有真实外部操作能力。
@@ -112,14 +121,15 @@ seed 控制候选不透明 ID、候选列表排列和随机基线选择，不随
 ## 验证
 
 ```sh
-npm test
-npm run test:benchmark
-npm run build
-npm run test:benchmark:browser
+# 无浏览器验证：游戏与评测 Node 测试、构建、根目录与两份 dist HTML 一致性
+npm run verify:node
+
+# 完整验证：上述检查，以及游戏与评测两套真实浏览器测试
+npm run verify
 ```
 
-本次 Node 套件通过 87 项检查。单元测试包含严格协议、九关裁判、配对构建、JSONL 选项、种子基线、浏览器输入适配，以及受控 DOM 替身中的可见性/遮挡/透明 checkbox/模态框/过期快照/恶意页面文本。生成页面启动回归会用 Node VM 执行实际内联脚本，检查九个入口、任务说明一致性、合法范围及只读裁判的隔离；它不进行浏览器渲染。真实浏览器套件包含九关在 ads on/off 条件下的已知解、原生点击与填写、遮挡、旧动作和隔离检查。
+本次评测 Node 套件通过 109 项检查。单元测试包含严格协议、九关裁判、配对构建、JSONL 选项、种子基线、浏览器输入适配，以及受控 DOM 替身中的可见性/遮挡/透明 checkbox/模态框/过期快照/恶意页面文本。新增回归覆盖 agent/浏览器异常、执行前检查与快照失效失败、页面错误优先级、真实 CLI 批次循环与资源清理、未知 token 统计，以及分发 HTML 一致性检查。生成页面启动回归会用 Node VM 执行实际内联脚本，检查九个入口、任务说明一致性、合法范围及只读裁判的隔离；它不进行浏览器渲染。真实浏览器套件包含九关在 ads on/off 条件下的已知解、原生点击与填写、遮挡、旧动作和隔离检查。
 
 浏览器套件默认使用 Playwright 安装的 Chromium；若使用系统浏览器，可运行 CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:benchmark:browser。
 
-本次九关集成未执行真实浏览器套件，因此没有新的浏览器验收结果。此前版本的 Chromium 启动曾被 socket EPERM 阻断；套件不会静默跳过或将启动失败记作成功。Node VM 与受控 DOM 替身不等于 Chromium 渲染验证，不能宣称已完成九关端到端验收。需要在可运行 Chromium 的环境执行最后一条命令后再确认。
+本次九关集成未执行真实浏览器套件，因此没有新的浏览器验收结果。此前版本的 Chromium 启动曾被 socket EPERM 阻断；套件不会静默跳过或将启动失败记作成功。Node VM 与受控 DOM 替身不等于 Chromium 渲染验证，不能宣称已完成九关端到端验收。需要在可运行 Chromium 的环境执行 npm run verify 后再确认。

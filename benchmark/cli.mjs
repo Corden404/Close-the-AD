@@ -29,31 +29,31 @@ export function parseArgs(args) {
   for(const stage of options.stages)validateConfig({stage,ads:options.ads[0],seed:options.seed,inspection:options.inspection,maxSteps:options.maxSteps,viewport:options.viewport});
   return options;
 }
-const emit=value=>process.stdout.write(JSON.stringify(value)+'\n');
-export async function main(args=process.argv.slice(2)) {
+export async function main(args=process.argv.slice(2),{sessionFactory=openSession,input=process.stdin,output=process.stdout,lines:providedLines,openTrace=open}={}) {
+  const emit=value=>output.write(JSON.stringify(value)+'\n');
   const options=parseArgs(args);
-  if(options.help){process.stdout.write(`Usage: node benchmark/cli.mjs [--stage 1..${chapters.length}|all] [--ads on|off|--paired] [--seed 1] [--inspection on|off] [--max-steps 100] [--mock random|heuristic] [--viewport 1440x1000] [--chromium /path/to/chromium] [--trace-dir directory]\nWithout --mock: JSONL observations on stdout; one action JSON per stdin line. No model service is contacted.\n`);return;}
-  const rl=options.mock?null:createInterface({input:process.stdin,crlfDelay:Infinity});
-  const lines=rl?.[Symbol.asyncIterator]();
+  if(options.help){output.write(`Usage: node benchmark/cli.mjs [--stage 1..${chapters.length}|all] [--ads on|off|--paired] [--seed 1] [--inspection on|off] [--max-steps 100] [--mock random|heuristic] [--viewport 1440x1000] [--chromium /path/to/chromium] [--trace-dir directory]\nWithout --mock: JSONL observations on stdout; one action JSON per stdin line. No model service is contacted.\n`);return;}
+  const rl=options.mock||providedLines?null:createInterface({input,crlfDelay:Infinity});
+  const lines=providedLines||rl?.[Symbol.asyncIterator]();
   const results=[];
   try {
     await mkdir(options.traceDir,{recursive:true});
     for(const stage of options.stages)for(const ads of options.ads) {
       const config={stage,ads,seed:options.seed,inspection:options.inspection,maxSteps:options.maxSteps,viewport:options.viewport,...(options.executablePath?{executablePath:options.executablePath}:{})};
-      const session=await openSession(config);
+      const session=await sessionFactory(config);
       const tag=createHash('sha256').update(options.seed).digest('hex').slice(0,8);
       const path=resolve(options.traceDir,`${new Date().toISOString().replaceAll(':','-')}-${stage+1}-${ads}-${tag}.benchmark.jsonl`);
-      let file;
+      let file,result;
       try {
-        file=await open(path,'wx',0o600);
+        file=await openTrace(path,'wx',0o600);
         const agent=options.mock?createMockAgent(options.mock,`${options.seed}:${stage}`):async packet=>{
           emit(packet);const next=await lines.next();return next.done?null:next.value;
         };
-        const result=await runEpisode(session,agent,{agentMetadata:{kind:options.mock?'mock':'external-jsonl',policy:options.mock},trace:event=>file.write(JSON.stringify(event)+'\n')});
-        results.push({...result,ads,inspection:options.inspection,seed:options.seed,stage:stage+1});
-        emit({...results.at(-1),trace_file:path});
-        if(result.reason==='agent_closed')return;
-      } finally { await file?.close();await session.close(); }
+        result=await runEpisode(session,agent,{agentMetadata:{kind:options.mock?'mock':'external-jsonl',policy:options.mock},trace:event=>file.write(JSON.stringify(event)+'\n')});
+      } finally { try { await file?.close(); } finally { await session.close(); } }
+      results.push({...result,ads,inspection:options.inspection,seed:options.seed,stage:stage+1});
+      emit({...results.at(-1),trace_file:path});
+      if(result.reason==='agent_closed')return;
     }
     emit({type:'summary',episodes:results.length,success_rate:results.filter(r=>r.success).length/results.length,zero_mistake_success_rate:results.filter(r=>r.zero_mistake_success).length/results.length,paired:options.ads.length===2,results});
   } finally { rl?.close(); }

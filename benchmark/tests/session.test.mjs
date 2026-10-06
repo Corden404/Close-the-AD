@@ -17,3 +17,69 @@ test('trace records explicit agent metadata without forwarding it as webpage con
 test('runtime provenance pins adapter sources and installed versions',async()=>{const meta=await session.runtimeMetadata();assert.match(meta.adapter_sha256,/^[a-f0-9]{64}$/);assert.equal(meta.node,process.version);assert.match(meta.playwright,/^\d+\.\d+\.\d+$/);});
 test('browser launch uses bundled Chromium unless an explicit executable is selected',()=>{assert.equal(Object.hasOwn(session.browserLaunchOptions(),'executablePath'),false);assert.equal(session.browserLaunchOptions('/custom/chromium').executablePath,'/custom/chromium');});
 test('token totals remain unknown when any agent call omits a usage field',async()=>{let count=0;const action={snapshot_id:'s1',action:'click',target_id:'a'};const partial=await session.runEpisode(fakeSession(),async()=>++count===1?{action,usage:{input_tokens:10,output_tokens:2}}:{action,usage:{input_tokens:20}});assert.equal(partial.input_tokens,30);assert.equal(partial.output_tokens,null);count=0;const absent=await session.runEpisode(fakeSession(),async()=>++count===1?action:{action,usage:{input_tokens:10,output_tokens:2}});assert.equal(absent.input_tokens,null);assert.equal(absent.output_tokens,null);});
+
+const clickAction={snapshot_id:'s1',action:'click',target_id:'a'};
+const secretFailure=()=>Object.assign(new Error('secret-token-do-not-publish'),{code:'secret-code-do-not-publish'});
+for(const failure of ['preflight','click','frame','invalidate','click-and-invalidate'])test(`executor contains ${failure} rejection as a sanitized execution_error`,async()=>{
+  const page=fakePage(),evaluate=page.evaluate,click=page.mouse.click;let invalidations=0;
+  page.evaluate=async(fn,arg)=>{
+    const source=String(fn);if(source.includes('invalidate'))invalidations++;
+    if((failure==='preflight'&&source.includes('preflight'))||(failure==='frame'&&source.includes('requestAnimationFrame'))||(failure.includes('invalidate')&&source.includes('invalidate')))throw secretFailure();
+    return evaluate(fn,arg);
+  };
+  page.mouse.click=async(...args)=>{await click(...args);if(failure.startsWith('click'))throw secretFailure();};
+  const result=await session.performAction(page,clickAction,observation);
+  assert.deepEqual(result,{ok:false,error:'execution_error'});
+  assert.doesNotMatch(JSON.stringify(result),/secret|stack/);
+  assert.equal(invalidations,failure==='preflight'?0:1);
+  if(failure==='preflight')assert.ok(!page.calls.some(([kind])=>['click','press','insertText','move','wheel'].includes(kind)));
+});
+test('agent rejection returns a terminal sanitized result and accounts for failed-call latency',async()=>{
+  const trace=[],fs=fakeSession();let calls=0;
+  const result=await session.runEpisode(fs,async()=>{calls++;await new Promise(resolve=>setTimeout(resolve,5));throw secretFailure();},{trace:event=>trace.push(event)});
+  assert.equal(calls,1);assert.equal(result.reason,'agent_error');assert.equal(result.error,'agent_callback_failed');
+  assert.equal(result.success,false);assert.equal(result.zero_mistake_success,false);assert.equal(result.attempts,0);
+  assert.equal(result.input_tokens,null);assert.equal(result.output_tokens,null);assert.ok(result.agent_latency_ms>0);assert.ok(result.elapsed_ms>=result.agent_latency_ms);
+  assert.deepEqual(trace.at(-1),result);assert.doesNotMatch(JSON.stringify(trace),/secret-token|secret-code|Error:|stack/);
+});
+test('agent rejection invalidates previously partial token totals',async()=>{
+  let calls=0;const result=await session.runEpisode(fakeSession(),async()=>{
+    if(++calls===1)return {action:clickAction,usage:{input_tokens:10,output_tokens:2}};
+    throw secretFailure();
+  });
+  assert.equal(result.reason,'agent_error');assert.equal(result.attempts,1);assert.equal(result.executed_actions,1);
+  assert.equal(result.input_tokens,null);assert.equal(result.output_tokens,null);
+});
+for(const operation of ['observe','evaluate','act'])test(`thrown ${operation} produces browser_error instead of escaping or using successful state`,async()=>{
+  const fs=fakeSession(),trace=[];let failed=false;
+  fs.evaluate=async()=>({success:failed,zero_mistake_success:failed,page_errors:[],mistakes:0,recoveries:0,inspected_controls:0});
+  fs[operation]=async()=>{failed=true;throw secretFailure();};
+  const result=await session.runEpisode(fs,async()=>clickAction,{trace:event=>trace.push(event)});
+  assert.equal(result.reason,'browser_error');assert.equal(result.error,`${operation}_failed`);
+  assert.equal(result.success,false);assert.equal(result.zero_mistake_success,false);assert.deepEqual(trace.at(-1),result);
+  assert.doesNotMatch(JSON.stringify(trace),/secret-token|secret-code|Error:|stack/);
+  if(operation==='evaluate'){
+    assert.equal(result.evaluation_available,false);
+    for(const key of ['mistakes','recoveries','inspected_controls','page_errors','blocked_requests','unexpected_pages','downloads'])assert.equal(result[key],null,key);
+  }else assert.equal(result.evaluation_available,true);
+});
+test('final evaluation failure does not reuse the earlier verdict or invent counters',async()=>{
+  const fs=fakeSession();let evaluations=0;
+  fs.evaluate=async()=>{if(++evaluations>1)throw secretFailure();return {success:false,page_errors:[],mistakes:3};};
+  const result=await session.runEpisode(fs,async()=>clickAction,{maxSteps:1});
+  assert.equal(result.reason,'browser_error');assert.equal(result.evaluation_available,false);
+  assert.equal(result.success,false);assert.equal(result.zero_mistake_success,false);assert.equal(result.mistakes,null);
+  assert.equal(result.attempts,1);assert.equal(result.executed_actions,1);
+});
+for(const moment of ['before first action','after final action'])test(`page_error overrides successful game state ${moment}`,async()=>{
+  const fs=fakeSession();let actions=0,agentCalls=0;
+  fs.act=async()=>{actions++;return {ok:true};};
+  fs.evaluate=async()=>{const completed=moment==='before first action'||actions===1;return {success:completed,zero_mistake_success:completed,page_errors:completed?['page failed']:[],mistakes:0};};
+  const result=await session.runEpisode(fs,async()=>{agentCalls++;return clickAction;},{maxSteps:1});
+  assert.equal(result.reason,'page_error');assert.equal(result.success,false);assert.equal(result.zero_mistake_success,false);
+  assert.equal(agentCalls,moment==='before first action'?0:1);
+});
+test('trace-write failures reject rather than becoming successful episode results',async()=>{
+  const failure=new Error('trace disk failure');
+  await assert.rejects(()=>session.runEpisode(fakeSession(),async()=>clickAction,{trace:event=>{if(event.type==='action')throw failure;}}),error=>error===failure);
+});
