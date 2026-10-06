@@ -60,3 +60,10 @@ Object.assign(inspections,{
  'cancellation.verify':{title:'最后看结果，而不是看口号',source:'light-radio.example · 取消回执',target:'已取消；自动续费关闭；下次扣费无',effect:'只有最终状态全部正确，才完成这关。',clue:'真实服务中也可以保留取消确认，用于之后核对。',kind:'正常：核对回执'}
 });
 for(const id of [0,1,2])inspections[`notifications.dismiss.${id}`]={title:'关闭的是消息，还是权限？',source:'daily-luck.example · 当前推广通知',target:'移除当前这一条消息',effect:'只收起一条通知，不撤回已允许的来源权限。',clue:'来源仍被允许时，点“检查新消息”会补回通知；这里没有自动计时。',kind:'正常：逐条关闭'};
+
+// Complete task metadata is shared by Node hosts and both browser bundles.
+chapters.push(
+ {label:'一次预约',title:'你只是想，\n约个售后。',goal:'约周六上午的官方免费检测',detail:'为松果洗衣机预约松果家电官方售后，周六 10 月 10 日上午到店检测。只要免费检测，不买优先服务。官方域名是 songguo.example。',host:'songguo.example',tab:'售后预约 · 松果家电',task:'一次预约',tag:'VERIFY THE REAL PROVIDER',lesson:'“官方”两个字，也需要核对出处。',takeaway:'把服务名称、提供方、域名和收费条件一起核对。排在前面的推广、客服头像和加速承诺，都不能替代官方来源与最终预约回执。',facts:['搜索结果的排序不代表官方身份。','免费服务也可能预选付费附加项。','提交后核对时段、费用和服务提供方。'],outcome:['售后，约对了。','预约回执','周六上午 · 官方检测 ¥0','来源、时间与费用都对上了'],icon:'⚒'},
+ {label:'一份工作',title:'你只是想，\n投份简历。',goal:'投递直招双休岗，零费用零额外授权',detail:'找企业直招、固定底薪至少 ¥6,000 / 月、周末双休的岗位。只投递已有简历，不交培训或内推费，不开放通讯录。',host:'zhiyu.example',tab:'职位搜索 · 职遇',task:'一份工作',tag:'READ BEYOND THE HEADLINE',lesson:'最高收入，和固定底薪不是一回事。',takeaway:'先读招聘主体和完整条件，再看投递涉及的费用与资料范围。职位标题、醒目的薪资与“提升成功率”承诺，未必符合你的选择。',facts:['固定底薪、综合收入与最高收入要分别看。','核对岗位是否企业直招、是否收费。','与投递无关的额外授权可以单独拒绝。'],outcome:['简历，投对了。','投递回执','青禾文具 · ¥0 · 仅现有简历','双休直招，无收费或通讯录授权'],icon:'▣'},
+ {label:'一段出行',title:'你只是想，\n周末出趟门。',goal:'周六上午直达，可退且总价 ≤ ¥120',detail:'预订周六 10 月 10 日上午从青原到白沙的直达车。车票须支持出发前 24 小时免费退，预算 ¥120，只要车票，不要附加服务或自动续费。',host:'wanxing.example',tab:'青原 → 白沙 · 晚行客运',task:'一段出行',tag:'COMPARE THE WHOLE JOURNEY',lesson:'最低价，也可能把条件一起换掉了。',takeaway:'用完整行程与最终价格比较方案。日期、出发时段、换乘、退改和后续扣费，都会改变一张票是否真的适合你。',facts:['同一列表可能混入次日票、联程和不可退特惠票。','本次免费会员也可能带来后续扣费。','完成预订后，再核对最终行程和费用。'],outcome:['这一程，刚刚好。','行程回执','周六 09:20 · 直达 ¥108 · 可退','只有车票，无后续扣费'],icon:'↗'}
+);

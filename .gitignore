@@ -13,3 +13,9 @@ node_modules/
 !.env.example
 .DS_Store
 *.log
+
+# Private benchmark traces and worker planning
+/benchmark-runs/
+/benchmark/*.jsonl
+/.superpowers/
+*.benchmark.jsonl

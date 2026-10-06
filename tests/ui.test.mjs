@@ -1,8 +1,9 @@
+import {GAME_SOURCE_PATHS} from '../build-sources.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
-const script=['src/advanced.mjs','src/engine.mjs','src/content.mjs','src/focus.mjs','src/scenes.mjs','src/advanced-scenes.mjs','src/ads.mjs','src/app.js'].map(p=>readFileSync(new URL('../'+p,import.meta.url),'utf8')).join('\n').replace(/^export /gm,'').replace(/^import .*;\s*$/gm,'');
+const script=GAME_SOURCE_PATHS.map(p=>readFileSync(new URL('../'+p,import.meta.url),'utf8')).join('\n').replace(/^export /gm,'').replace(/^import .*;\s*$/gm,'');
 function harness(play=true){
  const nodes=new Map(),focus=[],listeners={};
  const el=id=>({id,innerHTML:'',textContent:'',scrollTop:0,dataset:{},open:false,showModal(){this.open=true},close(){this.open=false},addEventListener(){},querySelector(){return null},focus(){focus.push(id)},scrollIntoView(){}});

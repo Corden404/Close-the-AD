@@ -1,5 +1,6 @@
 import {advancedInitial,reduceAdvanced} from './advanced.mjs';
-export const STAGE_COUNT=9;
+import {chapters} from './content.mjs';
+export const STAGE_COUNT=chapters.length;
 export function initialState(){
   return {
     ...advancedInitial(),stage:0,screen:'menu',hasStarted:false,returnScreen:'play',adClosed:[],adOverlays:[],sponsorId:null,attention:100,mistakes:0,recoveries:0,inspected:[],completed:[],

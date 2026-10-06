@@ -1,8 +1,9 @@
+import {GAME_SOURCE_PATHS} from '../build-sources.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const file=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const source=['src/advanced.mjs','src/engine.mjs','src/content.mjs','src/focus.mjs','src/scenes.mjs','src/advanced-scenes.mjs','src/ads.mjs','src/app.js'].map(file).join('\n');
+const source=GAME_SOURCE_PATHS.map(file).join('\n');
 test('game has no active network, permissions, clipboard, real navigation, or storage APIs',()=>{
  for(const pattern of [/\bfetch\s*\(/,/\bXMLHttpRequest\b/,/\bWebSocket\b/,/\bEventSource\b/,/\brequestPermission\s*\(/,/\bgetUserMedia\s*\(/,/\bclipboard\./,/\bwindow\.open\s*\(/,/\blocation\.(?:href|assign|replace)/,/\b(?:localStorage|sessionStorage|indexedDB)\b/,/\bserviceWorker\b/,/\bcreateObjectURL\b/,/\beval\s*\(/,/\bnew Function\b/])assert.doesNotMatch(source,pattern);
 });
