@@ -1,0 +1,15 @@
+# Private working documents and local verification records
+/docs/superpowers/
+/VERIFICATION.md
+/artifacts/
+
+# Local build output and source archives; the published HTML lives at the root
+/dist/
+
+# Dependencies, local configuration, and secrets
+node_modules/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
