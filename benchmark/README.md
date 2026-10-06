@@ -118,7 +118,7 @@ npm run build
 npm run test:benchmark:browser
 ```
 
-本次 Node 套件通过 85 项检查。单元测试包含严格协议、九关裁判、配对构建、JSONL 选项、种子基线、浏览器输入适配，以及受控 DOM 替身中的可见性/遮挡/透明 checkbox/模态框/过期快照/恶意页面文本。生成页面启动回归会用 Node VM 执行实际内联脚本，检查九个入口、任务说明一致性、合法范围及只读裁判的隔离；它不进行浏览器渲染。真实浏览器套件包含九关在 ads on/off 条件下的已知解、原生点击与填写、遮挡、旧动作和隔离检查。
+本次 Node 套件通过 87 项检查。单元测试包含严格协议、九关裁判、配对构建、JSONL 选项、种子基线、浏览器输入适配，以及受控 DOM 替身中的可见性/遮挡/透明 checkbox/模态框/过期快照/恶意页面文本。生成页面启动回归会用 Node VM 执行实际内联脚本，检查九个入口、任务说明一致性、合法范围及只读裁判的隔离；它不进行浏览器渲染。真实浏览器套件包含九关在 ads on/off 条件下的已知解、原生点击与填写、遮挡、旧动作和隔离检查。
 
 浏览器套件默认使用 Playwright 安装的 Chromium；若使用系统浏览器，可运行 CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:benchmark:browser。
 

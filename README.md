@@ -97,4 +97,4 @@ npm run benchmark -- --stage all --paired --mock random
 npm run test:benchmark:browser
 ```
 
-评测 Node 套件本次通过 85 项检查；九关 ads on/off 原生浏览器解题脚本已扩展，尚未在本次集成中执行。运行评测需要可用的 Chromium；随机和关键词基线不保证通关，也不代表模型效果。完整轨迹保存在已忽略的本地目录，默认不提交或上传。
+评测 Node 套件本次通过 87 项检查；九关 ads on/off 原生浏览器解题脚本已扩展，尚未在本次集成中执行。运行评测需要可用的 Chromium；随机和关键词基线不保证通关，也不代表模型效果。完整轨迹保存在已忽略的本地目录，默认不提交或上传。

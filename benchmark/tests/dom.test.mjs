@@ -348,3 +348,45 @@ test('lowercase live SVG tag names exclude the entire non-DOM-caption subtree', 
   svg.tagName = 'svg'; svg.children[0].tagName = 'text';
   assert.doesNotMatch(publicText(fixture([svg]).observe()), /SVG secret answer/);
 });
+
+const refundTripCard=(name,time,x,extra=[])=>new Element('article',{
+  rect:rect(x,20,350,260),children:[
+    new Element('div',{rect:rect(x+10,30,320,30),children:[
+      new Element('span',{text:name,rect:rect(x+10,30,130,25)}),
+      new Element('span',{text:'周六 10 月 10 日',rect:rect(x+160,30,160,25)})]}),
+    new Element('div',{text:time+' 青原 → 白沙 直达',rect:rect(x+10,80,310,30)}),
+    new Element('div',{attrs:{class:'trip-foot'},rect:rect(x+10,130,320,100),children:[
+      new Element('span',{text:'出发前 24 小时可免费退',rect:rect(x+10,130,300,25)}),
+      button('详情与预订 →',x+10,175,{attrs:{'data-action':'private.trip.'+name}})]}),
+    ...extra
+  ]});
+
+test('identical booking controls retain visible context from their own semantic article rather than footer',()=>{
+  const f=fixture([new Element('section',{rect:rect(0,0,800,400),children:[
+    refundTripCard('午后优选','13:10',10),refundTripCard('标准可退','09:20',410)]})]);
+  const obs=f.observe();assert.equal(obs.candidates.length,2);
+  const late=obs.candidates.find(c=>c.context.includes('午后优选'));
+  const river=obs.candidates.find(c=>c.context.includes('标准可退'));
+  assert.ok(late,'late card must be associated with its booking control');
+  assert.ok(river,'river card must be associated with its booking control');
+  assert.equal(late.label,river.label);assert.match(late.context,/13:10/);assert.match(river.context,/09:20/);
+  for(const candidate of [late,river])assert.match(candidate.context,/周六 10 月 10 日.*出发前 24 小时可免费退/);
+  assert.doesNotMatch(late.context,/标准可退|09:20/);assert.doesNotMatch(river.context,/午后优选|13:10/);
+  assert.ok(f.preflight(click(obs,late)).point.x<400);assert.ok(f.preflight(click(obs,river)).point.x>400);
+  assert.doesNotMatch(JSON.stringify(obs),/private\.trip|data-action|trip-foot/);
+});
+
+test('article context excludes hidden and offscreen text as well as visible neighboring card text',()=>{
+  const secrets=[
+    new Element('p',{text:'HIDDEN_CARD_SECRET',rect:rect(20,240,300,25),style:{display:'none'}}),
+    new Element('p',{text:'OFFSCREEN_CARD_SECRET',rect:rect(20,650,300,25)})];
+  const obs=fixture([new Element('section',{rect:rect(0,0,800,800),children:[
+    refundTripCard('标准可退','09:20',10,secrets),
+    refundTripCard('可见相邻班次','13:10',410),
+    new Element('article',{rect:rect(10,700,350,80),children:[
+      new Element('p',{text:'OFFSCREEN_NEIGHBOR_SECRET',rect:rect(20,710,300,25)})]})]})]).observe();
+  const river=obs.candidates.find(c=>c.context.includes('标准可退'));
+  assert.ok(river,'visible article heading must be retained');
+  assert.doesNotMatch(river.context,/可见相邻班次|13:10|SECRET/);
+  assert.doesNotMatch(publicText(obs),/SECRET/);
+});

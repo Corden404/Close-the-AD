@@ -148,7 +148,8 @@ export function installDomBridge(config = {}) {
     const groupFor = el => {
       let card = null;
       for (let parent = el.parentElement; parent && parent !== doc.body; parent = parent.parentElement) {
-        if (['ASIDE', 'DIALOG', 'FORM', 'FIELDSET'].includes(parent.tagName)) return parent;
+        // A card's footer may repeat across offers; keep its own visible article context.
+        if (['ARTICLE', 'ASIDE', 'DIALOG', 'FORM', 'FIELDSET'].includes(parent.tagName)) return parent;
         if (!card && parent.children.length > 1 && visibleFragments.some(f => parent.contains(f.node) && !el.contains(f.node))) card = parent;
         if (semanticTags.has(parent.tagName)) return card || parent;
       }
