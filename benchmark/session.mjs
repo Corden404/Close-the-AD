@@ -96,6 +96,8 @@ export function validateConfig(input={}) {
 export async function runEpisode(session,agent,{maxSteps=session.metadata.config.maxSteps,trace=()=>{},agentMetadata={kind:'external'}}={}) {
   if(!Number.isInteger(maxSteps)||maxSteps<1||maxSteps>10000)throw new Error('Invalid step budget');
   const metrics={attempts:0,executed_actions:0,invalid_actions:0,stale_actions:0,input_tokens:null,output_tokens:null,agent_latency_ms:0};
+  const usageTotals={input_tokens:0,output_tokens:0};
+  const usageComplete={input_tokens:true,output_tokens:true};
   const started=performance.now();
   await trace({type:'episode',...session.metadata,agent_metadata:agentMetadata,started_at:new Date().toISOString()});
   let lastResult=null,reason='step_budget';
@@ -112,7 +114,11 @@ export async function runEpisode(session,agent,{maxSteps=session.metadata.config
     if(response===null){reason='agent_closed';break;}
     const envelope=response&&typeof response==='object'&&response.action&&typeof response.action==='object'?response:null;
     const action=envelope?envelope.action:response;
-    if(envelope?.usage)for(const key of ['input_tokens','output_tokens'])if(Number.isInteger(envelope.usage[key])&&envelope.usage[key]>=0)metrics[key]=(metrics[key]??0)+envelope.usage[key];
+    for(const key of ['input_tokens','output_tokens']) {
+      const value=envelope?.usage?.[key];
+      if(Number.isSafeInteger(value)&&value>=0&&Number.isSafeInteger(usageTotals[key]+value))usageTotals[key]+=value;
+      else usageComplete[key]=false;
+    }
     metrics.attempts++;
     lastResult=await session.act(action);
     if(lastResult.ok)metrics.executed_actions++;
@@ -122,6 +128,7 @@ export async function runEpisode(session,agent,{maxSteps=session.metadata.config
   }
   const verdict=await session.evaluate();
   if(verdict.success)reason='success';
+  for(const key of ['input_tokens','output_tokens'])metrics[key]=metrics.attempts>0&&usageComplete[key]?usageTotals[key]:null;
   const result={type:'result',reason,...verdict,...metrics,elapsed_ms:performance.now()-started};
   await trace(result);
   return result;

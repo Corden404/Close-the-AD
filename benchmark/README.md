@@ -82,7 +82,7 @@ npm run benchmark -- --stage 3 --inspection on --mock heuristic
 - [Playwright 可操作性](https://playwright.dev/docs/actionability)
 - [Playwright 点击行为](https://playwright.dev/docs/api/class-locator#locator-click)
 
-也可导入 openSession、runEpisode，向 runEpisode 提供 async agent(packet) 回调。回调返回一个动作对象或 JSON 字符串；返回 null 表示结束。若模型客户端提供实际 usage，可返回 {action: 动作对象, usage: {input_tokens: 整数, output_tokens: 整数}}。未提供 usage 时 token 指标为 null，不会拿字符数冒充 token。可信宿主代码可以访问 session；模型不应接触此对象或执行任意代码。
+也可导入 openSession、runEpisode，向 runEpisode 提供 async agent(packet) 回调。回调返回一个动作对象或 JSON 字符串；返回 null 表示结束。若模型客户端提供实际 usage，可返回 {action: 动作对象, usage: {input_tokens: 整数, output_tokens: 整数}}。任一次回复缺少某项有效 usage 时，该项回合总量为 null，不把已知部分冒充总量，也不会拿字符数冒充 token。可信宿主代码可以访问 session；模型不应接触此对象或执行任意代码。
 
 ## 配对条件、随机性与评分
 
