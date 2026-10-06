@@ -32,7 +32,7 @@ export async function openSession(input={},dependencies={}) {
   const {chromium}=dependencies.chromium?dependencies:createRequire(import.meta.url)('playwright');
   const {installDomBridge}=await import('./dom.mjs');
   const html=await buildBenchmark(config);
-  const browser=await chromium.launch({headless:true,...(config.executablePath?{executablePath:config.executablePath}:{}),args:['--no-sandbox']});
+  const browser=await chromium.launch(browserLaunchOptions(config.executablePath));
   let context;
   try {
     context=await browser.newContext({viewport:config.viewport,reducedMotion:'reduce',permissions:[],serviceWorkers:'block',acceptDownloads:false});
@@ -132,4 +132,8 @@ export async function runtimeMetadata() {
   const hash=createHash('sha256');
   for(const file of files)hash.update(file).update(await readFile(new URL(file,import.meta.url)));
   return {adapter_sha256:hash.digest('hex'),node:process.version,playwright:createRequire(import.meta.url)('playwright/package.json').version};
+}
+
+export function browserLaunchOptions(executablePath) {
+  return {headless:true,args:['--no-sandbox'],...(executablePath?{executablePath}:{})};
 }
