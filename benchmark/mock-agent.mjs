@@ -17,7 +17,7 @@ export function createMockAgent(mode='random',seed='1') {
       const checkbox=candidates.find(c=>c.kind==='checkbox'&&c.checked);
       if(checkbox)return act(checkbox,'click');
       // A domain-specific keyword baseline, not a hidden optimal-path oracle.
-      const priority=[/^关闭广告$/, /继续放弃/,/展开做法/,/打开附件/,/保存到/,/管理试用会员/,/展开订单核对/,/确认.*(?:付款|支付)|提交订单/,/播放原课程/,/叶节上方/,/改为禁止/,/打开站点权限/,/查看.*(?:消息|取书)|打开.*消息/,/记下.*(?:消息|时间|地点)|记好了/,/管理我的订阅/,/取消订阅/,/继续取消/,/确认取消/,/已核对/];
+      const priority=[/^关闭广告$/, /继续放弃/,/展开做法/,/打开附件/,/保存到/,/管理试用会员/,/展开订单核对/,/确认.*(?:购买|付款|支付)|提交订单/,/播放原课程/,/叶节上方/,/改为禁止/,/打开站点权限/,/查看.*(?:消息|取书)|打开.*消息/,/记下.*(?:消息|时间|地点)|记好了/,/管理我的订阅/,/取消订阅/,/继续取消/,/确认取消/,/已核对/];
       for(const pattern of priority){const target=candidates.find(c=>c.operations.includes('click')&&pattern.test(c.label)&&(seen.get(`${c.label}|${c.context}`)||0)<2);if(target){const key=`${target.label}|${target.context}`;seen.set(key,(seen.get(key)||0)+1);return act(target,'click');}}
       const back=candidates.find(c=>/返回原页面/.test(c.label));
       if(back&&/幸运访客|你来到了一个推广页面|严重问题/.test(text))return act(back,'click');

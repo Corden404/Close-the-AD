@@ -39,7 +39,7 @@ test('real-browser six-stage solutions use public snapshots and native actions',
       await findAndAct(/返回原页面/);
       if(stage===0){await findAndAct(/展开做法/);await findAndAct(/记下烤箱温度|填温度/,'fill',{value:'200'});await findAndAct(/记好了/);}
       if(stage===1){await findAndAct(/打开附件/);await findAndAct(/保存到/);}
-      if(stage===2){for(const name of [/安心保障包/,/优先入馆服务/])await findAndAct(name);await findAndAct(/管理试用会员/);await findAndAct(/继续放弃/);await findAndAct(/展开订单核对/);await findAndAct(/确认.*付款|提交订单/);}
+      if(stage===2){for(const name of [/安心保障包/,/优先入馆服务/])await findAndAct(name);await findAndAct(/管理试用会员/);await findAndAct(/继续放弃/);await findAndAct(/展开订单核对/);await findAndAct(/确认购买|确认.*付款|提交订单/);}
       if(stage===3){await findAndAct(/播放原课程/);await findAndAct(/叶节上方/);}
       if(stage===4){await findAndAct(/打开站点权限/);await findAndAct(/改为禁止/);await findAndAct(/查看取书消息/);await findAndAct(/记下取书安排/);}
       if(stage===5){for(const pattern of [/管理我的订阅/,/^取消订阅/,/不选以上方案/,/确认取消订阅/,/已核对/])await findAndAct(pattern);}
