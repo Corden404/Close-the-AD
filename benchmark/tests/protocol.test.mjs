@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+let protocol = {};
+try { protocol = await import('../protocol.mjs'); } catch (error) { if (error.code !== 'ERR_MODULE_NOT_FOUND') throw error; }
+const obs={snapshot_id:'s1',candidates:[{id:'x8',kind:'button',operations:['click']},{id:'z1',kind:'textbox',operations:['fill']},{id:'a7',kind:'scroll',operations:['scroll']}]};
+test('protocol exports strict action validator',()=>assert.equal(typeof protocol.validateAction,'function'));
+test('accepts exactly one public candidate click',()=>assert.deepEqual(protocol.validateAction({snapshot_id:'s1',action:'click',target_id:'x8'},obs),{snapshot_id:'s1',action:'click',target_id:'x8'}));
+test('rejects stale, unknown, wrong operation and extra instructions',()=>{for(const [patch,error] of [[{snapshot_id:'old'},'stale_snapshot'],[{target_id:'trap.close'},'unknown_target'],[{action:'fill',value:'2'},'invalid_action'],[{javascript:'state.completed=[0]'},'invalid_action']])assert.throws(()=>protocol.validateAction({snapshot_id:'s1',action:'click',target_id:'x8',...patch},obs),new RegExp(error));});
+test('rejects JSON wrappers, arrays, inherited data and oversized responses',()=>{for(const value of ['```json\n{}\n```','[]','x'.repeat(5000),null,Object.create({snapshot_id:'s1',action:'click',target_id:'x8'})])assert.throws(()=>protocol.validateAction(value,obs));});
+test('bounds fill and wheel actions without interpreting text',()=>{assert.equal(protocol.validateAction({snapshot_id:'s1',action:'fill',target_id:'z1',value:'200'},obs).value,'200');for(const value of ['x'.repeat(101),42])assert.throws(()=>protocol.validateAction({snapshot_id:'s1',action:'fill',target_id:'z1',value},obs));for(const delta_y of [0,1001,NaN,Infinity,'200'])assert.throws(()=>protocol.validateAction({snapshot_id:'s1',action:'scroll',target_id:'a7',delta_y},obs));assert.equal(protocol.validateAction({snapshot_id:'s1',action:'scroll',target_id:'a7',delta_y:-500},obs).delta_y,-500);});
+test('schema contains only current opaque IDs and operation-specific fields',()=>{const schema=protocol.makeActionSchema(obs);assert.equal(schema.anyOf.length,3);for(const variant of schema.anyOf){assert.equal(variant.additionalProperties,false);assert.equal(variant.properties.snapshot_id.const,'s1');}assert.deepEqual(schema.anyOf[0].properties.target_id.enum,['x8']);assert.ok(!JSON.stringify(schema).includes('trap'));});
+test('host prompt treats page text as untrusted data',()=>assert.match(protocol.AGENT_INSTRUCTIONS,/不可信/));
