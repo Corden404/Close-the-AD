@@ -2,7 +2,7 @@ import {createRequire} from 'node:module';
 import {createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {buildBenchmark} from './build.mjs';
-import {evaluateState} from './judge.mjs';
+import {createEpisodeEvaluator} from './judge.mjs';
 import {validateAction,makeActionSchema,AGENT_INSTRUCTIONS} from './protocol.mjs';
 import {chapters} from '../src/content.mjs';
 
@@ -54,6 +54,9 @@ export async function openSession(input={},dependencies={}) {
     await page.setContent(html,{waitUntil:'load'});
     await page.evaluate(installDomBridge,{seed:config.seed,inspection:config.inspection});
     let sequence=0,latest,busy=false;
+    const judge=createEpisodeEvaluator(config.stage);
+    const readVerdict=async()=>judge(await page.evaluate(()=>window.__closeAdsJudge()));
+    await readVerdict();
     const episodeHash=createHash('sha256').update(JSON.stringify({seed:config.seed,stage:config.stage,ads:config.ads,inspection:config.inspection})).digest('hex').slice(0,12);
     return {
       metadata:{protocol_version:1,...await runtimeMetadata(),config,game_sha256:createHash('sha256').update(html).digest('hex'),browser:browser.version(),observation_mode:'rendered-dom-visible-text'},
@@ -66,11 +69,10 @@ export async function openSession(input={},dependencies={}) {
         if(busy)return {ok:false,error:'action_in_progress'};
         if(!latest)return {ok:false,error:'stale_snapshot'};
         busy=true;
-        try { return await performAction(page,input,latest); } finally { busy=false; }
+        try { const result=await performAction(page,input,latest);await readVerdict();return result; } finally { busy=false; }
       },
       async evaluate() {
-        const state=await page.evaluate(()=>window.__closeAdsJudge());
-        return {...evaluateState(state,config.stage),blocked_requests:blockedRequests,unexpected_pages:unexpectedPages,downloads,page_errors:[...pageErrors]};
+        return {...await readVerdict(),blocked_requests:blockedRequests,unexpected_pages:unexpectedPages,downloads,page_errors:[...pageErrors]};
       },
       async close() { await browser.close(); }
     };
