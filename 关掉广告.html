@@ -117,13 +117,17 @@ function reduce(s,a){
     return enterStage(s,s.stage+1);
   }
   if(s.screen!=='play')return s;
-  if(a.type==='browser.return'||a.type==='browser.back')return {
-    ...s,layers:[],adOverlays:[],route:a.type==='browser.back'?(s.history.at(-1)||'goal'):'goal',
+  if(a.type==='browser.return'||a.type==='browser.back'){
+    const route=a.type==='browser.back'?(s.history.at(-1)||'goal'):'goal';
+    const recovered=route==='goal'&&(s.route!=='goal'||s.tabClosed||s.layers.length>0||s.adOverlays.length>0);
+    return {
+    ...s,layers:[],adOverlays:[],route,
     history:a.type==='browser.back'?s.history.slice(0,-1):[],tabClosed:false,timetableOpen:false,
     permissionSettings:false,pushSettings:false,messageOpen:false,
-    cancelStep:s.subscription.status==='cancelled'?'receipt':'account',recoveries:s.recoveries+1,
+    cancelStep:s.subscription.status==='cancelled'?'receipt':'account',recoveries:s.recoveries+Number(recovered),
     notice:s.stage===4?'已回到消息中心。单独关掉页面不会撤回已经开启的通知权限。':'回到原来的任务。已经确认的选择仍然有效，误点也能重新决定。'
   };
+  }
   if(a.type==='browser.close')return {...s,tabClosed:true,layers:[],adOverlays:[],notice:'标签页已关闭。用「返回原页面」重新打开原页。'};
   if(!s.tabClosed&&s.stage===1&&a.type==='permission.settings')return {...s,permissionSettings:!s.permissionSettings};
   if(!s.tabClosed&&s.stage===1&&a.type==='permission.block'&&s.permissionSettings)return {...s,permissionSimulated:false,layers:s.layers.filter(id=>id!=='notification'),notice:'已禁止 speed-file.example 的通知。课表仍可正常打开。'};
@@ -432,7 +436,7 @@ function debrief(){
  return `<section class="debrief scene-enter"><span class="completion-seal" aria-hidden="true">✓</span><div class="eyebrow">TASK ${String(state.stage+1).padStart(2,'0')} / ${STAGE_COUNT} COMPLETED</div><h2>任务完成。<br>${result[0]}</h2><div class="result-receipt"><span>${result[1]}</span><strong>${result[2]}</strong></div><div class="lesson"><span class="eyebrow">带走这一点就够了</span><h3>${c.lesson}</h3><p>${c.takeaway}</p><ul>${c.facts.map(x=>`<li>${x}</li>`).join('')}</ul></div>${state.stage<STAGE_COUNT-1?`<div class="next-preview"><span>下一件小事 / 0${state.stage+2}</span><b>${chapters[state.stage+1].goal}</b></div>`:''}<div class="debrief-actions">${button('next',state.completed.length===STAGE_COUNT?'收下我的今日小结 →':state.stage<STAGE_COUNT-1?'继续，下一件小事 →':'回到选关 →','solid next-button')}${button('menu.open','返回选关','text-button','','result:home')}${button('retry','重试本关','text-button','','result:retry')}</div><span class="slow-note">慢一点，也能到达。</span></section>`;
 }
 function complete(){
- return `<section class="complete scene-enter"><div class="finish-art" aria-hidden="true"><span class="finish-star">✳</span><span class="finish-check">✓</span><span class="finish-x">×</span></div><div class="eyebrow">SIX SMALL THINGS. ALL YOURS.</div><h2>今天的决定权，<br>回到你手里。</h2><p class="finish-intro">六件普通的小事，一天刚刚好。<br>记得自己来做什么，就已经走在自己的路上。</p><div class="final-receipts">${chapters.map((c,i)=>`<div><span>0${i+1} / ${c.label}</span><strong>${['200°C','PDF ✓','¥48','学到了','安静了','已取消'][i]}</strong><small>${c.outcome[3]}</small><span class="receipt-corner" aria-hidden="true">✓</span></div>`).join('')}</div><div class="stats"><span>认真检查 <b>${state.inspected.length}</b> 处</span><span>走过弯路 <b>${state.mistakes}</b> 次</span><span>找回任务 <b>${state.recoveries}</b> 次</span></div><p class="finish-note">${state.mistakes?'走错路再回来，也是一种熟练。':'把每一次点击，都留给自己的决定。'}<br>注意力不是分数，是本来就属于你的东西。</p><div class="finish-actions">${button('menu.open','回到选关，再逛逛 ↺','solid','','finish:home')}${button('sources','看看设计背后的依据 ↗','text-button')}</div></section>`;
+ return `<section class="complete scene-enter"><div class="finish-art" aria-hidden="true"><span class="finish-star">✳</span><span class="finish-check">✓</span><span class="finish-x">×</span></div><div class="eyebrow">SIX SMALL THINGS. ALL YOURS.</div><h2>今天的决定权，<br>回到你手里。</h2><p class="finish-intro">六件普通的小事，一天刚刚好。<br>记得自己来做什么，就已经走在自己的路上。</p><div class="final-receipts">${chapters.map((c,i)=>`<div><span>0${i+1} / ${c.label}</span><strong>${['200°C','PDF ✓','¥48','学到了','安静了','已取消'][i]}</strong><small>${c.outcome[3]}</small><span class="receipt-corner" aria-hidden="true">✓</span></div>`).join('')}</div><div class="stats"><span>认真检查 <b>${state.inspected.length}</b> 处</span><span>走过弯路 <b>${state.mistakes}</b> 次</span><span>找回任务 <b>${state.recoveries}</b> 次</span></div><p class="finish-note">${state.mistakes?'走错路再回来，也是一种熟练。':'把每一次点击，都留给自己的决定。'}<br>注意力不是分数，是本来就属于你的东西。<br>「找回任务」只统计从跳转、关闭标签页或广告遮挡中返回目标页；空返回与单独收起正文视图不计。</p><div class="finish-actions">${button('menu.open','回到选关，再逛逛 ↺','solid','','finish:home')}${button('sources','看看设计背后的依据 ↗','text-button')}</div></section>`;
 }
 function focusFallbacks(){return state.screen==='menu'?['menu:resume','chapter:0','menu']:['toolbar:inspect','toolbar:return','world'];}
 function render(preferredFocus=null,resetInput=false){
