@@ -80,7 +80,7 @@ function initialState(){
   return {
     stage:0,screen:'menu',hasStarted:false,returnScreen:'play',adClosed:[],adOverlays:[],sponsorId:null,attention:100,mistakes:0,recoveries:0,inspected:[],completed:[],
     layers:['prize'],route:'goal',history:[],tabClosed:false,paused:false,
-    recipeExpanded:false,timetableOpen:false,saved:false,permissionSimulated:false,
+    recipeExpanded:false,timetableOpen:false,saved:false,permissionSimulated:false,permissionSettings:false,
     extras:{insurance:true,fast:true,trial:true},reviewed:false,cookie:true,
     lessonOpened:false,pushAllowed:true,pushQueue:[0,1,2],pushSettings:false,messageOpen:false,messageRead:false,
     cancelStep:'account',subscription:{status:'active',renewal:true,nextCharge:'2026-11-06',price:19},
@@ -120,11 +120,13 @@ function reduce(s,a){
   if(a.type==='browser.return'||a.type==='browser.back')return {
     ...s,layers:[],adOverlays:[],route:a.type==='browser.back'?(s.history.at(-1)||'goal'):'goal',
     history:a.type==='browser.back'?s.history.slice(0,-1):[],tabClosed:false,timetableOpen:false,
-    permissionSimulated:false,pushSettings:false,messageOpen:false,
+    permissionSettings:false,pushSettings:false,messageOpen:false,
     cancelStep:s.subscription.status==='cancelled'?'receipt':'account',recoveries:s.recoveries+1,
     notice:s.stage===4?'已回到消息中心。单独关掉页面不会撤回已经开启的通知权限。':'回到原来的任务。已经确认的选择仍然有效，误点也能重新决定。'
   };
   if(a.type==='browser.close')return {...s,tabClosed:true,layers:[],adOverlays:[],notice:'标签页已关闭。用「返回原页面」重新打开原页。'};
+  if(!s.tabClosed&&s.stage===1&&a.type==='permission.settings')return {...s,permissionSettings:!s.permissionSettings};
+  if(!s.tabClosed&&s.stage===1&&a.type==='permission.block'&&s.permissionSettings)return {...s,permissionSimulated:false,layers:s.layers.filter(id=>id!=='notification'),notice:'已禁止 speed-file.example 的通知。课表仍可正常打开。'};
   if(s.tabClosed||s.route!=='goal')return s;
   if(a.type.startsWith('ad.')){
     const valid=stageAdIds(s.stage);
@@ -152,7 +154,7 @@ function reduce(s,a){
   }
   if(s.stage===1){
     if(a.type==='trap.download')return enterDetour(s,'download','“高速下载”送来的不是课表，而是一个安装器。');
-    if(a.type==='trap.permission')return mistake(s,'通知开启了；这不是拿到课表的必要条件。回到任务即可撤回。',{permissionSimulated:true,layers:['notification']});
+    if(a.type==='trap.permission')return mistake(s,'通知开启了；这不是拿到课表的必要条件。返回或关闭标签页不会撤回，请在站点权限中禁止这个来源。',{permissionSimulated:true,layers:['notification']});
     if(a.type==='pdf.open')return {...s,timetableOpen:true,notice:'核对文件名、发布者与学期，再保存到文件夹。'};
     if(a.type==='pdf.old')return {...s,notice:'这份是 2025 秋季旧版。任务需要 2026 秋季，继续找当前版本。'};
     if(a.type==='pdf.save'&&s.timetableOpen)return finish({...s,saved:true});
@@ -210,7 +212,7 @@ function reduce(s,a){
 
 const chapters=[
  {label:'一顿晚饭',title:'你只是想，\n做顿晚饭。',goal:'找出烤箱温度',detail:'在「慢半拍厨房」找到番茄焗意面的原始做法，记下烤箱温度。',host:'slowkitchen.example',tab:'番茄焗意面 · 慢半拍厨房',task:'一份菜谱',tag:'READ THE RECIPE',lesson:'不是所有 ×，都在说再见。',takeaway:'网页里的关闭图标也可能是广告。可疑弹窗越关越多时，用浏览器级的返回或关闭标签页脱离，再回到原任务。',facts:['不要凭一条网页警告判断设备感染。','真正的菜谱，在原始正文里。','正常提示也有用，关键是看来源与点击后果。']},
- {label:'一份课表',title:'你只是想，\n下份课表。',goal:'拿到正确的课表 PDF',detail:'从「未读学园」公告中，保存 2026 秋季的课表 PDF。别把下载器带回家。',host:'weidu-school.example',tab:'教务公告 · 未读学园',task:'一份课表',tag:'GET THE RIGHT FILE',lesson:'按钮很大，文件未必对。',takeaway:'把下载按钮和文件的发布者、名称、格式对应起来。“允许通知才能继续”可能在把无关权限包装成必经步骤。',facts:['核对学期和文件类型，而不只看“下载”二字。','通知权限本身不是病毒，也不必然是不安全的。','正常下载文件通常不需要先订阅推广通知。']},
+ {label:'一份课表',title:'你只是想，\n下份课表。',goal:'拿到正确的课表 PDF',detail:'从「未读学园」公告中，保存 2026 秋季的课表 PDF。别把下载器带回家。',host:'weidu-school.example',tab:'教务公告 · 未读学园',task:'一份课表',tag:'GET THE RIGHT FILE',lesson:'按钮很大，文件未必对。',takeaway:'把下载按钮和文件的发布者、名称、格式对应起来。“允许通知才能继续”可能在把无关权限包装成必经步骤。',facts:['核对学期和文件类型，而不只看“下载”二字。','通知权限本身不是病毒，也不必然是不安全的。','正常下载文件通常不需要先订阅推广通知；已允许的来源要在站点权限中明确禁止。']},
  {label:'一张门票',title:'你只是想，\n买一张票。',goal:'¥50 以内，只买门票',detail:'买一张「明日闲逛馆」普通票。预算 ¥50，不要附加服务，也不要后续自动续费。',host:'tomorrow-museum.example',tab:'确认订单 · 明日闲逛馆',task:'一张门票',tag:'KEEP YOUR OWN BUDGET',lesson:'免费试用，有时只是收费的前奏。',takeaway:'付款前核对默认勾选、本次合计、续费条件和取消入口。会改变决定的条件，不应该被藏在小字里。',facts:['预选附加项可能悄悄增加合计。','本次 ¥0 不代表以后不收费。','读取消按钮的完整意思，别被醒目的按钮带着走。']}
 ];
 const inspections={
@@ -221,7 +223,9 @@ const inspections={
  'recipe.submit':{title:'记下你的答案',source:'任务便签',target:'核对烤箱温度',effect:'检查答案是否与原始菜谱一致。',clue:'不计速度，随时能回去核对。',kind:'正常：完成任务'},
  'notice.dismiss':{title:'一个普通的阅读提示',source:'slowkitchen.example · 当前网站',target:'关闭本页提示',effect:'收起“步骤可展开”的说明，没有额外页面。',clue:'界面提示也可能在帮助你。检查来源和后果，比见到弹窗就点掉更重要。',kind:'正常：帮助提示'},
  'trap.download':{title:'下载的是课表，还是下载器？',source:'speed-file.example · 推广内容',target:'ClassSchedule_Helper.exe',effect:'打开安装器页面，拿不到 PDF 课表。',clue:'醒目的下载按钮属于第三方广告，文件类型也与 PDF 不一致。',kind:'留意：假下载按钮'},
- 'trap.permission':{title:'课表为什么需要通知权限？',source:'speed-file.example · 推广内容',target:'开启推广通知',effect:'页面内多出推广消息；',clue:'权限本身不等于感染。问题在于用无关权限作为获取文件的条件。',kind:'留意：权限诱导'},
+ 'trap.permission':{title:'课表为什么需要通知权限？',source:'speed-file.example · 推广内容',target:'开启推广通知',effect:'开启模拟通知许可并显示推广消息；返回或关闭标签页不会撤回。',clue:'权限本身不等于感染。问题在于用无关权限作为获取文件的条件。',kind:'留意：权限诱导'},
+ 'permission.settings':{title:'管理站点通知权限',source:'游戏内浏览器 · 站点权限',target:'speed-file.example 的通知许可',effect:'查看模拟许可状态，不会请求真实设备权限。',clue:'返回或关闭标签页不会撤回通知许可；需要明确禁止来源。',kind:'正常：站点权限'},
+ 'permission.block':{title:'禁止这个来源的通知',source:'游戏内浏览器 · 站点权限',target:'speed-file.example',effect:'撤回此来源的模拟通知许可并清理其通知。',clue:'课表无需这个许可；其他来源不受影响。',kind:'正常：撤回权限'},
  'pdf.open':{title:'核对这份附件',source:'weidu-school.example · 教务处',target:'2026-秋季-课程表.pdf · 248 KB',effect:'在浏览器内预览 PDF，无需下载器或通知权限。',clue:'发布者、学期、文件名与原任务一致。',kind:'正常：官方附件'},
  'pdf.old':{title:'文件没坏，但学期不对',source:'weidu-school.example · 公告归档',target:'2025-秋季-课程表.pdf',effect:'这是历史版本，不能完成本次任务。',clue:'可信来源也有旧文件。正确文件还需要匹配日期与用途。',kind:'正常：历史附件'},
  'pdf.save':{title:'保存课表',source:'weidu-school.example · 当前 PDF',target:'「我的文件」',effect:'标记课表已保存，',clue:'文件名称、格式与发布来源都与你的任务一致。',kind:'正常：保存文件'},
@@ -396,8 +400,9 @@ function selection(){
 function safetyFooter(){return `<footer id="safety-footer" class="safety-footer"><b>关于这张网页</b><p>这是一个离线网页游戏。所有网站、品牌、广告、通知、账户、下载和付款均为虚构模拟，仅改变本页状态，不会请求真实设备权限、下载软件、导航到外部网站或产生支付。无需个人信息，没有联网、追踪和数据收集。刷新后进度清空。</p><p>网页中的关闭、返回与标签页操作也仅限游戏。浏览器工具栏里的「选关」「返回原页面」和菜单始终可用；动态效果可以关闭。</p>${button('sources','资料依据','footer-link','','footer:sources')}</footer>`;}
 function browser(){
  const c=chapters[state.stage],host=state.route==='goal'?c.host:state.route==='sponsor'?(adCatalog.find(ad=>ad.id===state.sponsorId)?.host||'sponsor.example'):`${state.route}.ad.example`;
- return `<section class="browser immersive-browser" aria-label="浏览器窗口"><div class="browser-top"><div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div><div class="browser-tab"><span class="tab-icon">${c.icon}</span><span>${c.tab}</span>${button('browser.close','×','tab-close','aria-label="关闭标签页" title="关闭标签页"')}</div><span class="browser-newtab" aria-hidden="true">＋</span><span class="window-corner" aria-hidden="true">—　□</span></div><nav class="browser-toolbar" id="game-controls" tabindex="-1" aria-label="浏览器导航">${button('menu.open','⌂','browser-home','aria-label="返回选关" title="返回选关"','toolbar:home')}${button('browser.back','←','browser-back','aria-label="返回上一个页面" title="返回"')}${button('browser.return','↻','browser-reload','aria-label="返回原页面" title="返回原页面"','toolbar:return')}<div class="address"><span aria-hidden="true">▧</span><span>${host}</span><span class="address-star" aria-hidden="true">☆</span></div>${button('browser.menu','⋯','browser-more','aria-label="打开浏览器菜单" title="菜单"','toolbar:menu')}</nav><div class="browser-bookmarks">${button('goal.show',`<span aria-hidden="true">★</span><span>${c.goal}</span>`,'browser-goal','title="查看本关目标"','toolbar:goal')}${button('inspect.toggle',inspectMode?'⌕ 检查中':'⌕ 检查','browser-inspector',`aria-pressed="${inspectMode}"`,'toolbar:inspect')}</div><div id="world" class="world ${inspectMode?'inspect-mode':''}" data-focus="world" tabindex="-1">${worldContent()}</div><div id="feedback" class="feedback browser-status" role="status"><span aria-hidden="true">${state.screen==='play'?'↳':'✓'}</span><span>${state.notice}</span></div></section>`;
+ return `<section class="browser immersive-browser" aria-label="浏览器窗口"><div class="browser-top"><div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div><div class="browser-tab"><span class="tab-icon">${c.icon}</span><span>${c.tab}</span>${button('browser.close','×','tab-close','aria-label="关闭标签页" title="关闭标签页"')}</div><span class="browser-newtab" aria-hidden="true">＋</span><span class="window-corner" aria-hidden="true">—　□</span></div><nav class="browser-toolbar" id="game-controls" tabindex="-1" aria-label="浏览器导航">${button('menu.open','⌂','browser-home','aria-label="返回选关" title="返回选关"','toolbar:home')}${button('browser.back','←','browser-back','aria-label="返回上一个页面" title="返回"')}${button('browser.return','↻','browser-reload','aria-label="返回原页面" title="返回原页面"','toolbar:return')}<div class="address"><span aria-hidden="true">▧</span><span>${host}</span><span class="address-star" aria-hidden="true">☆</span></div>${button('browser.menu','⋯','browser-more','aria-label="打开浏览器菜单" title="菜单"','toolbar:menu')}</nav><div class="browser-bookmarks">${button('goal.show',`<span aria-hidden="true">★</span><span>${c.goal}</span>`,'browser-goal','title="查看本关目标"','toolbar:goal')}${button('inspect.toggle',inspectMode?'⌕ 检查中':'⌕ 检查','browser-inspector',`aria-pressed="${inspectMode}"`,'toolbar:inspect')}</div><div id="world" class="world ${inspectMode?'inspect-mode':''}" data-focus="world" tabindex="-1">${state.stage===1&&state.screen==='play'&&!state.tabClosed?permissionPanel():''}${worldContent()}</div><div id="feedback" class="feedback browser-status" role="status"><span aria-hidden="true">${state.screen==='play'?'↳':'✓'}</span><span>${state.notice}</span></div></section>`;
 }
+function permissionPanel(){return `<div class="inbox-tools">${ib('permission.settings','站点权限','permission-button',`aria-expanded="${state.permissionSettings}"`)}</div>${state.permissionSettings?`<section class="permission-panel"><h3>站点通知权限</h3><p>speed-file.example · ${state.permissionSimulated?'已允许发送通知':'已禁止发送通知'}</p><p>返回或关闭标签页不会撤回许可。</p>${state.permissionSimulated?ib('permission.block','禁止这个来源的通知','block-source'):'<span>✓ 未允许通知</span>'}</section>`:''}`;}
 function decoratePage(html){
  if(state.stage<2)return html;
  const banner=renderStageAds(state,'banner',ib),image=renderStageAds(state,'image',ib);
