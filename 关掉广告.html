@@ -92,7 +92,9 @@ function stageAdIds(stage){const prefix={2:'ticket',3:'lesson',4:'inbox',5:'radi
 function enterStage(s,stage){return {...initialState(),stage,screen:'play',hasStarted:true,attention:s.attention,mistakes:s.mistakes,recoveries:s.recoveries,inspected:[...s.inspected],completed:[...s.completed],layers:stage===0?['prize']:[],adOverlays:stageAdIds(stage).filter(id=>id.endsWith('-float')),notice:stageNotices[stage]};}
 const mistake=(s,notice,patch={})=>({...s,...patch,mistakes:s.mistakes+1,attention:Math.max(15,s.attention-8),notice});
 const finish=(s)=>({...s,screen:'debrief',layers:[],completed:[...new Set([...s.completed,s.stage])],notice:'原来的任务，完成了。'});
-const enterDetour=(s,route,notice)=>mistake(s,notice,{route,history:[...s.history,s.route],layers:[]});
+// History records destinations only. Permissions, orders and subscriptions stay live.
+const routeEntry=s=>({route:s.route,sponsorId:s.route==='sponsor'?s.sponsorId:null});
+const enterDetour=(s,route,notice,sponsorId=null)=>mistake(s,notice,{route,sponsorId,history:[...s.history,routeEntry(s)],layers:[]});
 const stageNotices=[
   '先记住你要做的事。这里没有倒计时，慢慢来。',
   '这次，你只想要一份课表。',
@@ -118,13 +120,13 @@ function reduce(s,a){
   }
   if(s.screen!=='play')return s;
   if(a.type==='browser.return'||a.type==='browser.back'){
-    const route=a.type==='browser.back'?(s.history.at(-1)||'goal'):'goal';
+    const destination=a.type==='browser.back'?(s.history.at(-1)||{route:'goal',sponsorId:null}):{route:'goal',sponsorId:null};
+    const {route,sponsorId}=destination;
     const recovered=route==='goal'&&(s.route!=='goal'||s.tabClosed||s.layers.length>0||s.adOverlays.length>0);
     return {
-    ...s,layers:[],adOverlays:[],route,
-    history:a.type==='browser.back'?s.history.slice(0,-1):[],tabClosed:false,timetableOpen:false,
-    permissionSettings:false,pushSettings:false,messageOpen:false,
-    cancelStep:s.subscription.status==='cancelled'?'receipt':'account',recoveries:s.recoveries+Number(recovered),
+    ...s,layers:[],adOverlays:[],route,sponsorId,
+    history:a.type==='browser.back'?s.history.slice(0,-1):[],tabClosed:false,
+    recoveries:s.recoveries+Number(recovered),
     notice:s.stage===4?'已回到消息中心。单独关掉页面不会撤回已经开启的通知权限。':'回到原来的任务。已经确认的选择仍然有效，误点也能重新决定。'
   };
   }
@@ -142,7 +144,7 @@ function reduce(s,a){
       const extra=a.value.replace('-float','-followup');
       return mistake(s,'这个 × 又带来一张推广卡片。你仍可以关闭它，或返回原页面。',{adOverlays:[...new Set([...s.adOverlays,...(s.adClosed.includes(extra)?[]:[extra])])].slice(0,2)});
     }
-    if(a.type==='ad.visit')return enterDetour({...s,sponsorId:a.value},'sponsor','打开了推广页面。原来的事情还在那里，可以随时返回。');
+    if(a.type==='ad.visit')return enterDetour(s,'sponsor','打开了推广页面。原来的事情还在那里，可以随时返回。',a.value);
     return s;
   }
   if(s.stage===0){
@@ -302,7 +304,7 @@ function lessonScene(s,ib){
    <aside class="fake-video-banner ad"><span class="ad-label">广告 · instant-wins.example</span><div><span class="fake-play-symbol" aria-hidden="true">▶</span><b>内容已就绪，只差你点一下。</b></div>${ib('trap.play','立即播放 ▶','fake-play','', 'lesson:banner-play')}</aside>
    <div class="lesson-columns"><section class="original-lesson" aria-label="原课程内容"><div class="lesson-poster">${mintArt}<span class="poster-tag">一小课 · 薄荷修剪</span><span class="poster-number" aria-hidden="true">04</span>${!s.lessonOpened?ib('lesson.play','<span aria-hidden="true">▶</span> 播放原课程','real-play'): '<span class="lesson-loaded">✓ 原课程已打开</span>'}</div>
    <div class="lesson-credits"><b>薄荷修剪：找到合适的下剪位置</b><span>发布者：一小课园艺编辑部</span><small>点击查看完整课程分镜与文字讲解</small></div>
-   ${s.lessonOpened?`<div class="storyboard"><div class="storyboard-heading"><span>课程分镜 / 完整文字</span><span>3 / 3</span></div><ol><li><span>01</span><div><b>找到叶节</b><p>叶子成对长出的地方，就是叶节。先选一根健康的枝条。</p></div></li><li class="key-frame"><span>02</span><div><b>在叶节上方剪</b><p>从一对叶子的叶节上方下剪，保留下面的叶片。</p></div></li><li><span>03</span><div><b>留一点生长空间</b><p>一次不剪得过多，让下面的新芽慢慢长出来。</p></div></li></ol></div><div class="lesson-quiz"><span class="eyebrow">把这一点记下来</span><h3>这节课建议，在哪里下剪？</h3><div class="answer-options">${ib('lesson.answer.root','A　紧贴土面，从根部剪','choice-button')}${ib('lesson.answer.node','B　在叶节上方，保留下面叶片','choice-button')}${ib('lesson.answer.leaves','C　把所有叶片都剪掉','choice-button')}</div><p>可以回看分镜。认真看比答得快更重要。</p></div>`:''}</section>
+   ${s.lessonOpened?`<div class="storyboard" tabindex="-1" data-focus="content:lesson"><div class="storyboard-heading"><span>课程分镜 / 完整文字</span><span>3 / 3</span></div><ol><li><span>01</span><div><b>找到叶节</b><p>叶子成对长出的地方，就是叶节。先选一根健康的枝条。</p></div></li><li class="key-frame"><span>02</span><div><b>在叶节上方剪</b><p>从一对叶子的叶节上方下剪，保留下面的叶片。</p></div></li><li><span>03</span><div><b>留一点生长空间</b><p>一次不剪得过多，让下面的新芽慢慢长出来。</p></div></li></ol></div><div class="lesson-quiz"><span class="eyebrow">把这一点记下来</span><h3>这节课建议，在哪里下剪？</h3><div class="answer-options">${ib('lesson.answer.root','A　紧贴土面，从根部剪','choice-button')}${ib('lesson.answer.node','B　在叶节上方，保留下面叶片','choice-button')}${ib('lesson.answer.leaves','C　把所有叶片都剪掉','choice-button')}</div><p>可以回看分镜。认真看比答得快更重要。</p></div>`:''}</section>
    <aside class="lesson-side-ad ad"><span class="ad-label">推广内容 · video-helper.example</span><span class="plugin-icon" aria-hidden="true">▣</span><h3>还不能播放？</h3><p>开启高清画质，<br>体验更流畅的播放。</p>${ib('trap.update','一键更新播放器 ↗','update-fake')}${ib('trap.videoDownload','下载万能播放助手','text-button')}<small>支持桌面与移动设备</small></aside></div>
   </div></div>`;
 }
@@ -316,7 +318,7 @@ function notificationScene(s,ib){
  <div class="message-list">${s.pushQueue.map(id=>`<article class="push-card"><div class="message-avatar">${pushAds[id][2]}</div><div class="message-content"><div class="message-source"><b>好运速报</b><span>推广通知</span></div><h4>${pushAds[id][0]}</h4><p>${pushAds[id][1]}</p><small>daily-luck.example</small></div>${ib(`notifications.dismiss.${id}`,'×','dismiss-push',`aria-label="关闭第 ${id+1} 条推广通知"`)}</article>`).join('')}
  ${!s.pushQueue.length?`<div class="quiet-message"><span>⌁</span><div><b>${s.pushAllowed?'眼前安静了，来源还在。':'安静，不用靠一直点 ×。'}</b><p>${s.pushAllowed?'点击「检查新消息」，看看权限还在做什么。':'好运速报已被禁止，不会再补入推广通知。'}</p></div></div>`:''}
  <article class="useful-message"><div class="message-avatar useful">▤</div><div class="message-content"><div class="message-source"><b>邻里阅览室</b><span>取书提醒</span></div><h4>你预约的书，可以来拿了。</h4><p>一本书，和一段不被打扰的时间。</p>${ib('message.open',s.messageOpen?'原消息已展开 ↓':'查看取书消息 →','open-message',`aria-expanded="${s.messageOpen}"`)}</div></article></div>
- ${s.messageOpen?`<section class="message-detail"><span class="eyebrow">来自 reading-room.example</span><h3>给你留了一本好书。</h3><p>预约的《慢慢长大》已备好，请今天 <strong>18:30 前</strong>，到 <strong>二楼服务台</strong> 领取。</p><div class="collection-note"><span>地点<b>二楼服务台</b></span><span>时间<b>今天 18:30 前</b></span></div>${ib('message.ack','记下取书安排，完成任务 ✓','solid')}<small>邻里阅览室 · 读书，让时间慢一点。</small></section>`:''}</div></div>`;
+ ${s.messageOpen?`<section class="message-detail" tabindex="-1" data-focus="content:message"><span class="eyebrow">来自 reading-room.example</span><h3>给你留了一本好书。</h3><p>预约的《慢慢长大》已备好，请今天 <strong>18:30 前</strong>，到 <strong>二楼服务台</strong> 领取。</p><div class="collection-note"><span>地点<b>二楼服务台</b></span><span>时间<b>今天 18:30 前</b></span></div>${ib('message.ack','记下取书安排，完成任务 ✓','solid')}<small>邻里阅览室 · 读书，让时间慢一点。</small></section>`:''}</div></div>`;
 }
 function subscriptionScene(s,ib){
  const sub=s.subscription;
@@ -424,7 +426,7 @@ function worldContent(){
  const page=[recipe,school,checkout,()=>lessonScene(state,ib),()=>notificationScene(state,ib),()=>subscriptionScene(state,ib)][state.stage]();
  return decoratePage(page)+adLayers()+`<div class="campaign-overlays">${renderStageAds(state,'overlay',ib)}</div>`;
 }
-function recipe(){return `<div class="site recipe-site"><div class="site-masthead"><span class="site-logo kitchen-logo">✳ <b>慢半拍</b><small>厨房</small></span><span class="site-nav">认真做饭　/　慢慢吃饭</span></div><div class="recipe-ad ad" aria-label="推广广告"><span class="ad-label">广告 / AD</span><span>晚饭不重要，<b>你的好运更重要！</b></span>${ib('trap.prize','看看我的好运 ↗','yellow-small','','recipe:prize')}</div><div class="recipe-layout"><article><div class="breadcrumb">首页 / 日常食谱 / 烤箱料理</div><span class="eyebrow coral">TONIGHT, SOMETHING GOOD.</span><h2 class="recipe-title">番茄焗意面</h2><p class="recipe-intro">把普通的一天，烤得热气腾腾。</p><div class="recipe-meta"><span class="author-avatar">慢</span><span>慢半拍编辑部<small>家常食谱 · 2026.09.18</small></span><span class="rating">★ 4.9<small>126 人做过</small></span></div><div class="food-scene">${foodArt}<span class="food-sticker">认真吃饭<br><b>很重要</b></span></div><div class="recipe-facts"><span>准备<strong>10 分钟</strong></span><span>烘烤<strong>15 分钟</strong></span><span>份量<strong>2 人份</strong></span></div><div class="method"><div class="section-heading"><h3>原始菜谱 · 做法</h3><span>不用先领券</span></div>${state.recipeExpanded?`<ol class="steps"><li><b>01</b><span>番茄切块，与洋葱炒软，加入少许盐。</span></li><li><b>02</b><span>意面煮至八分熟，拌入番茄酱，铺上芝士。</span></li><li class="temperature-step"><b>03</b><span>烤箱上下火预热至 <strong>200°C</strong>，中层烘烤 15 分钟，表面微金黄即可。</span></li></ol>`:ib('recipe.expand','展开做法 · 3 个步骤 <span>↓</span>','method-button')}<form id="temperature-form" class="answer-form"><label for="temperature">记下烤箱温度</label><div class="answer-row"><div class="temperature-input"><input id="temperature" data-focus="temperature" name="temperature" inputmode="numeric" type="number" min="50" max="300" placeholder="填温度" aria-describedby="answer-help" required><span>°C</span></div>${ib('recipe.submit','记好了 →','solid')}</div><small id="answer-help">先核对正文，再提交答案。猜错也能重来。</small></form></div>${state.cookie?`<aside class="help-notice"><span aria-hidden="true">i</span><p><b>阅读小提示</b>点「展开做法」就能查看所有步骤，无需注册。</p>${ib('notice.dismiss','知道了','text-button')}</aside>`:''}</article><aside class="recipe-rail"><div class="rail-letter"><span class="line-flower">✳</span><h3>人生已经<br>够快了。</h3><p>至少这一餐，<br>慢一点。</p><span class="rail-rule"></span><small>慢半拍厨房</small></div><div class="rail-index"><b>本页导航</b><span>01　今日食谱</span><span>02　原始做法</span><span>03　记下温度</span></div></aside></div></div>`;}
+function recipe(){return `<div class="site recipe-site"><div class="site-masthead"><span class="site-logo kitchen-logo">✳ <b>慢半拍</b><small>厨房</small></span><span class="site-nav">认真做饭　/　慢慢吃饭</span></div><div class="recipe-ad ad" aria-label="推广广告"><span class="ad-label">广告 / AD</span><span>晚饭不重要，<b>你的好运更重要！</b></span>${ib('trap.prize','看看我的好运 ↗','yellow-small','','recipe:prize')}</div><div class="recipe-layout"><article><div class="breadcrumb">首页 / 日常食谱 / 烤箱料理</div><span class="eyebrow coral">TONIGHT, SOMETHING GOOD.</span><h2 class="recipe-title">番茄焗意面</h2><p class="recipe-intro">把普通的一天，烤得热气腾腾。</p><div class="recipe-meta"><span class="author-avatar">慢</span><span>慢半拍编辑部<small>家常食谱 · 2026.09.18</small></span><span class="rating">★ 4.9<small>126 人做过</small></span></div><div class="food-scene">${foodArt}<span class="food-sticker">认真吃饭<br><b>很重要</b></span></div><div class="recipe-facts"><span>准备<strong>10 分钟</strong></span><span>烘烤<strong>15 分钟</strong></span><span>份量<strong>2 人份</strong></span></div><div class="method"><div class="section-heading"><h3>原始菜谱 · 做法</h3><span>不用先领券</span></div>${state.recipeExpanded?`<ol class="steps" tabindex="-1" data-focus="content:recipe"><li><b>01</b><span>番茄切块，与洋葱炒软，加入少许盐。</span></li><li><b>02</b><span>意面煮至八分熟，拌入番茄酱，铺上芝士。</span></li><li class="temperature-step"><b>03</b><span>烤箱上下火预热至 <strong>200°C</strong>，中层烘烤 15 分钟，表面微金黄即可。</span></li></ol>`:ib('recipe.expand','展开做法 · 3 个步骤 <span>↓</span>','method-button')}<form id="temperature-form" class="answer-form"><label for="temperature">记下烤箱温度</label><div class="answer-row"><div class="temperature-input"><input id="temperature" data-focus="temperature" name="temperature" inputmode="numeric" type="number" min="50" max="300" placeholder="填温度" aria-describedby="answer-help" required><span>°C</span></div>${ib('recipe.submit','记好了 →','solid')}</div><small id="answer-help">先核对正文，再提交答案。猜错也能重来。</small></form></div>${state.cookie?`<aside class="help-notice"><span aria-hidden="true">i</span><p><b>阅读小提示</b>点「展开做法」就能查看所有步骤，无需注册。</p>${ib('notice.dismiss','知道了','text-button')}</aside>`:''}</article><aside class="recipe-rail"><div class="rail-letter"><span class="line-flower">✳</span><h3>人生已经<br>够快了。</h3><p>至少这一餐，<br>慢一点。</p><span class="rail-rule"></span><small>慢半拍厨房</small></div><div class="rail-index"><b>本页导航</b><span>01　今日食谱</span><span>02　原始做法</span><span>03　记下温度</span></div></aside></div></div>`;}
 function school(){if(state.timetableOpen)return pdf();return `<div class="site school-site"><div class="site-masthead school-head"><span class="site-logo school-logo"><span class="school-mark">未</span><b>未读学园<small>教务信息服务</small></b></span><span class="site-nav">通知公告　 /　 教学资源</span></div><div class="school-banner"><span class="eyebrow">ACADEMIC AFFAIRS</span><h2>新学期，<br>从一张课表开始。</h2><div class="paper-plane" aria-hidden="true">↗</div><span>2026 秋季 · 教务公告</span></div><div class="school-body"><div class="download-ad ad"><span class="ad-label">推广内容</span><span class="download-mark" aria-hidden="true">⇣</span><div><h3>课表，一键高速获取</h3><p>专属下载助手 · 让简单的事更复杂</p></div>${ib('trap.download','立即下载 ↓','download-fake')}<div class="permission-line"><span>验证后即可继续</span>${ib('trap.permission','允许通知并继续 →','text-button')}</div></div><div class="breadcrumb">教务首页 / 通知公告 / 课程安排</div><div class="official-doc"><div class="section-heading"><span class="eyebrow blue">OFFICIAL NOTICE</span><span class="verified-badge">教务处发布</span></div><h3>关于公布 2026 秋季课程表的通知</h3><div class="notice-date">发布于 2026.09.01　·　适用学期：2026 秋季</div><p>请同学们下载本学期课表。课表以本通知附件为准；下载附件无需安装软件，也无需开启通知。</p><div class="file-card"><div class="pdf-icon">PDF<span>↳</span></div><div><strong>2026-秋季-课程表.pdf</strong><small>248 KB · 教务处 · 当前版本</small></div>${ib('pdf.open','打开附件 ↗','file-button')}</div><div class="old-file"><span>历史归档</span>${ib('pdf.old','2025 秋季课表 · 旧版','text-button')}<span>PDF</span></div></div><div class="school-note"><span>i</span>教务公告没有“限时领取”。文件在这里，慢慢核对。</div></div></div>`;}
 function pdf(){return `<section class="pdf-viewer"><div class="pdf-toolbar"><span>▤　2026-秋季-课程表.pdf</span><span>1 / 1</span></div><div class="paper-document"><div class="document-emblem">未</div><div class="eyebrow">未读学园 · 教务处</div><h2>2026 秋季课程表</h2><p>2026 年 9 月起适用 · 当前公布版本</p><div class="schedule-table" role="table" aria-label="课程表"><div class="schedule-row heading" role="row"><span role="columnheader">时段</span><span role="columnheader">周一</span><span role="columnheader">周二</span><span role="columnheader">周三</span><span role="columnheader">周四</span><span role="columnheader">周五</span></div>${[['09:00','语文','数学','英语','语文','科学'],['10:30','数学','美术','科学','体育','英语'],['14:00','历史','英语','音乐','数学','班会']].map(r=>`<div class="schedule-row" role="row">${r.map(x=>`<span role="cell">${x}</span>`).join('')}</div>`).join('')}</div><div class="document-note">核对完成：学期、发布者、PDF 格式都与任务一致。</div><div class="document-stamp">教务处<br>2026.09.01</div></div><div class="save-bar"><span><b>这就是你要的课表。</b><small>发布者：未读学园教务处 · 当前版本</small></span>${ib('pdf.save','保存到「我的文件」 ↓','solid')}</div></section>`;}
 function checkout(){return `<div class="site ticket-site"><div class="site-masthead ticket-head"><span class="site-logo museum-logo">⌁ <b>明日闲逛馆</b></span><span class="site-nav">把今天，留给一点无用的美好。</span></div><div class="checkout-steps"><b>01 选门票</b><span>—</span><strong>02 确认订单</strong><span>—</span><b>03 去闲逛</b></div><div class="ticket-intro"><div><span class="eyebrow coral">A LITTLE DAY OFF.</span><h2>就买一张，<br>好好闲逛。</h2><p>常设展 · 普通单人票</p></div>${ticketArt}</div><div class="checkout-content"><div class="ticket-line"><div><strong>明日闲逛馆 · 普通门票</strong><small>10 月 18 日（日）14:00 · 1 人</small></div><b>¥48<span>× 1</span></b></div><div class="addons"><div class="section-heading"><h3>让你的旅程更“完整”</h3><span>可选服务</span></div>${extraRow('insurance','安心保障包','普通门票也可正常入馆。',12)}${extraRow('fast','优先入馆服务','不购买也可按预约时段入馆。',18)}<div class="trial-card ${state.extras.trial?'selected':''}"><div class="trial-top"><span class="trial-icon">✦</span><div><strong>闲逛 PLUS · 7 天免费试用</strong><small>今日开通，尊享会员身份</small></div><b>¥0</b></div><p>试用结束后 <strong>¥39/月，自动续费</strong>。需在试用结束前取消。</p><div class="trial-bottom"><span>${state.extras.trial?'已为你勾选':'已移除 · 不会续费'}</span>${state.extras.trial?ib('trial.remove','管理试用会员','text-button'):ib('trial.add','重新加入试用','text-button')}</div></div></div><div class="checkout-summary"><div class="total-line"><span>本次合计<small>你的原预算 ¥50</small></span><strong>¥${total(state)}<small>.00</small></strong></div>${ib('checkout.review',`${state.reviewed?'已展开':'展开'}订单核对 <span>↓</span>`,'review-button')}${state.reviewed?`<div class="review-details"><p><span>门票</span><b>¥48</b></p><p><span>附加服务</span><b>¥${total(state)-48}</b></p><p class="${state.extras.trial?'recurring-warning':''}"><span>后续扣费</span><b>${state.extras.trial?'7 天后 ¥39/月':'无'}</b></p><div class="refund-info"><b>退改说明</b>未使用的门票可在预约日前一天 18:00 前免费退；逾期及使用后不退。</div></div>`:''}${ib('checkout.pay','确认购买 <span>→</span>','solid pay-button')}<p class="payment-note">下单前请核对票种、金额与后续扣费</p></div></div></div>`;}
@@ -439,25 +441,41 @@ function complete(){
  return `<section class="complete scene-enter"><div class="finish-art" aria-hidden="true"><span class="finish-star">✳</span><span class="finish-check">✓</span><span class="finish-x">×</span></div><div class="eyebrow">SIX SMALL THINGS. ALL YOURS.</div><h2>今天的决定权，<br>回到你手里。</h2><p class="finish-intro">六件普通的小事，一天刚刚好。<br>记得自己来做什么，就已经走在自己的路上。</p><div class="final-receipts">${chapters.map((c,i)=>`<div><span>0${i+1} / ${c.label}</span><strong>${['200°C','PDF ✓','¥48','学到了','安静了','已取消'][i]}</strong><small>${c.outcome[3]}</small><span class="receipt-corner" aria-hidden="true">✓</span></div>`).join('')}</div><div class="stats"><span>认真检查 <b>${state.inspected.length}</b> 处</span><span>走过弯路 <b>${state.mistakes}</b> 次</span><span>找回任务 <b>${state.recoveries}</b> 次</span></div><p class="finish-note">${state.mistakes?'走错路再回来，也是一种熟练。':'把每一次点击，都留给自己的决定。'}<br>注意力不是分数，是本来就属于你的东西。<br>「找回任务」只统计从跳转、关闭标签页或广告遮挡中返回目标页；空返回与单独收起正文视图不计。</p><div class="finish-actions">${button('menu.open','回到选关，再逛逛 ↺','solid','','finish:home')}${button('sources','看看设计背后的依据 ↗','text-button')}</div></section>`;
 }
 function focusFallbacks(){return state.screen==='menu'?['menu:resume','chapter:0','menu']:['toolbar:inspect','toolbar:return','world'];}
+// Reading positions belong to rendered views, never to business-state history.
+const viewPositions=new Map();
+let renderedViewKey=null;
+function viewKey(s){
+ const page=s.tabClosed?'closed':s.route==='sponsor'?`sponsor:${s.sponsorId}`:s.route!=='goal'?s.route:s.timetableOpen?'pdf':s.stage===5?`goal:${s.cancelStep}`:'goal';
+ return `${s.stage}:${s.screen}:${page}`;
+}
 function render(preferredFocus=null,resetInput=false){
  const key=preferredFocus||actionFocus||captureFocus(document.activeElement);actionFocus=null;
- const scroll=document.getElementById('world')?.scrollTop||0,input=document.getElementById('temperature');
+ const oldWorld=document.getElementById('world');
+ const position={worldTop:oldWorld?.scrollTop||0,worldLeft:oldWorld?.scrollLeft||0,x:window.scrollX,y:window.scrollY,focus:key};
+ if(renderedViewKey!==null)viewPositions.set(renderedViewKey,position);
+ const nextKey=viewKey(state),changed=renderedViewKey!==nextKey;
+ const saved=changed?viewPositions.get(nextKey):position;
+ const input=document.getElementById('temperature');
  if(resetInput)temperatureDraft='';else if(input)temperatureDraft=input.value;
  document.documentElement.dataset.paused=String(state.paused||dialog.open);
  app.innerHTML=(state.screen==='menu'?selection():`<main class="immersive-app">${browser()}</main>`)+safetyFooter();
  const freshInput=document.getElementById('temperature');if(freshInput)freshInput.value=temperatureDraft;
- if(key)restoreFocus(app,key,focusFallbacks());
- const world=document.getElementById('world');if(world)world.scrollTop=scroll;
+ const focus=preferredFocus||(changed?(saved?.focus||(state.screen==='menu'?'menu':'world')):key);
+ if(focus)restoreFocus(app,focus,focusFallbacks());
+ const world=document.getElementById('world');if(world){world.scrollTop=saved?.worldTop||0;world.scrollLeft=saved?.worldLeft||0;}
+ window.scrollTo(saved?.x||0,saved?.y||0);
+ renderedViewKey=nextKey;
  document.getElementById('announcer').textContent=state.notice;
 }
 function dispatch(type,value){
- const oldStage=state.stage,oldScreen=state.screen;
- state=reduce(state,{type,value});render(null,['restart','retry','stage.select'].includes(type));
- if(oldStage!==state.stage||oldScreen!==state.screen){
-  const target=state.screen==='menu'?document.querySelector('.chapter-menu'):document.getElementById('world');
-  if(target){target.scrollTop=0;target.focus({preventScroll:true});}
-  document.querySelector(state.screen==='menu'?'.chapter-menu':'.browser')?.scrollIntoView({block:'start',behavior:'instant'});
- }
+ const previous=state;
+ state=reduce(state,{type,value});
+ const freshAttempt=['restart','retry','stage.select'].includes(type)||(previous.stage!==state.stage);
+ if(freshAttempt){viewPositions.clear();renderedViewKey=null;}
+ const expanded={ 'recipe.expand':['recipeExpanded','content:recipe'], 'lesson.play':['lessonOpened','content:lesson'], 'message.open':['messageOpen','content:message'] }[type];
+ const contentFocus=expanded&&!previous[expanded[0]]&&state[expanded[0]]?expanded[1]:null;
+ render(contentFocus,freshAttempt);
+ if(contentFocus)app.querySelector(`[data-focus="${contentFocus}"]`)?.scrollIntoView({block:'start',behavior:'instant'});
 }
 function openDialog(type,html){
  dialogReturn=dialog.open?(dialogReturn||'toolbar:menu'):(actionFocus||captureFocus(document.activeElement)||'world');actionFocus=null;

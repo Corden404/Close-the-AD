@@ -31,3 +31,21 @@ test('only genuine returns to the original task count as recoveries',()=>{
  let ads=act(stage(2),'browser.return');assert.equal(ads.recoveries,1);
  ads=act(ads,'browser.return');assert.equal(ads.recoveries,1);
 });
+test('history retains route and sponsor identity without business state snapshots',()=>{
+ let s=stage(5);
+ s={...s,cancelStep:'receipt',subscription:{...s.subscription,status:'cancelled',renewal:false,nextCharge:null}};
+ s=act(s,'ad.visit','radio-banner');
+ assert.deepEqual(JSON.parse(JSON.stringify(s.history)),[{route:'goal',sponsorId:null}]);
+ assert.equal(s.sponsorId,'radio-banner');
+ s=act(s,'browser.back');assert.equal(s.route,'goal');assert.equal(s.cancelStep,'receipt');
+ assert.equal(s.subscription.status,'cancelled');assert.equal(s.subscription.renewal,false);
+ let pdf=act(stage(1),'pdf.open');pdf=act(pdf,'trap.download');pdf=act(pdf,'browser.back');
+ assert.equal(pdf.timetableOpen,true,'PDF survives detour');
+ let inbox=act(stage(4),'notifications.settings');inbox=act(inbox,'notifications.block');inbox=act(inbox,'message.open');
+ inbox=act(inbox,'ad.visit','inbox-banner');inbox=act(inbox,'browser.return');
+ assert.equal(inbox.pushSettings,true);assert.equal(inbox.messageOpen,true);assert.equal(inbox.pushAllowed,false);
+ const nested={...s,route:'sponsor',sponsorId:'radio-image',history:[{route:'goal',sponsorId:null},{route:'sponsor',sponsorId:'radio-banner'}]};
+ const previous=act(nested,'browser.back');assert.equal(previous.sponsorId,'radio-banner');assert.equal(previous.route,'sponsor');
+ assert.equal(previous.recoveries,nested.recoveries,'intermediate advertisement is not a recovery');
+ const original=act(previous,'browser.return');assert.equal(original.sponsorId,null);assert.equal(original.history.length,0);
+});
