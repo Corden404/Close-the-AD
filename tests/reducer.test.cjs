@@ -18,3 +18,16 @@ test('notification permission survives return, back and closed tabs until explic
   s=act(s,'permission.settings');s=act(s,'permission.block');assert.equal(s.permissionSimulated,false);
  }
 });
+test('only genuine returns to the original task count as recoveries',()=>{
+ let s=stage(1);
+ for(const type of ['browser.back','browser.return','browser.return'])s=act(s,type);
+ assert.equal(s.recoveries,0,'no-op returns');
+ s=act(s,'pdf.open');s=act(s,'browser.back');assert.equal(s.recoveries,0,'PDF alone');
+ s=act(s,'trap.download');s=act(s,'browser.return');assert.equal(s.recoveries,1);
+ s=act(s,'browser.return');assert.equal(s.recoveries,1,'repeat return');
+ s=act(s,'browser.close');s=act(s,'browser.return');assert.equal(s.recoveries,2,'reopen target');
+ s=act(s,'trap.permission');s=act(s,'browser.back');assert.equal(s.recoveries,3,'obscuring notification');
+ s=act(s,'browser.back');assert.equal(s.recoveries,3);
+ let ads=act(stage(2),'browser.return');assert.equal(ads.recoveries,1);
+ ads=act(ads,'browser.return');assert.equal(ads.recoveries,1);
+});
